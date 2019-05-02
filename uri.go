@@ -62,12 +62,12 @@ type URI struct {
 	Scheme string `json:"scheme,omitempty"`
 }
 
-// Components
+// Components represents a URI Components.
 type Components struct {
 	*URI
 }
 
-// State
+// State represents a URI State.
 type State struct {
 	*URI
 	Mid      float64 `json:"$mid,omitempty"`
