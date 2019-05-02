@@ -46,5 +46,6 @@ _testmain.go
 # coverage
 coverage.*
 
-# binary
-/uri
+# modules
+go.sum
+vendor/*
