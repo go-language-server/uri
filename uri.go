@@ -5,6 +5,15 @@
 // Package uri implementation vscode-uri for Go.
 package uri
 
+import (
+	"fmt"
+	"net/url"
+	"path/filepath"
+)
+
+// FileScheme schema of filesystem path.
+const FileScheme = "file"
+
 // URI Uniform Resource Identifier (URI) http://tools.ietf.org/html/rfc3986.
 //
 // This class is a simple parser which creates the basic component parts
@@ -62,9 +71,29 @@ type URI struct {
 	Scheme string `json:"scheme,omitempty"`
 }
 
-// Components represents a URI Components.
-type Components struct {
-	*URI
+// String implements fmt.Stringer.
+func (u *URI) String() string {
+	switch u.Scheme {
+	case FileScheme:
+		uri := &url.URL{
+			Scheme: u.Scheme,
+			Path:   u.Path,
+		}
+		return uri.String()
+
+	case "http", "https":
+		uri := &url.URL{
+			Scheme:   u.Scheme,
+			Host:     u.Authority,
+			Path:     u.Path,
+			RawQuery: url.QueryEscape(u.Query),
+			Fragment: u.Fragment,
+		}
+		return uri.String()
+
+	default:
+		return "unknown schema"
+	}
 }
 
 // State represents a URI State.
@@ -72,4 +101,40 @@ type State struct {
 	*URI
 	Mid      float64 `json:"$mid,omitempty"`
 	External string  `json:"external,omitempty"`
+}
+
+// Parse parses and creates a new URI from uri.
+func Parse(uri string) *URI {
+	u, err := url.Parse(uri)
+	if err != nil {
+		panic(fmt.Sprintf("url.Parse: %#v\n", err))
+	}
+
+	return &URI{
+		Scheme:    u.Scheme,
+		Authority: u.Host,
+		Path:      u.Path,
+		Query:     u.Query().Encode(),
+		Fragment:  u.Fragment,
+	}
+}
+
+// File parses and creates a new URI filesystem path from path.
+func File(path string) *URI {
+	return &URI{
+		Scheme: FileScheme,
+		Path:   path,
+		FsPath: filepath.FromSlash(path),
+	}
+}
+
+// From returns the new URI from args.
+func From(scheme, authority, path, query, fragment string) *URI {
+	return &URI{
+		Scheme:    scheme,
+		Authority: authority,
+		Path:      path,
+		Query:     query,
+		Fragment:  fragment,
+	}
 }
