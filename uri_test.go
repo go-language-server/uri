@@ -16,12 +16,12 @@ import (
 func TestParse(t *testing.T) {
 	tests := []struct {
 		name string
-		uri  string
+		s    string
 		want *uri.URI
 	}{
 		{
 			name: "Valid",
-			uri:  "https://code.visualstudio.com/docs/extensions/overview#frag",
+			s:    "https://code.visualstudio.com/docs/extensions/overview#frag",
 			want: &uri.URI{
 				Scheme:    "https",
 				Authority: "code.visualstudio.com",
@@ -35,7 +35,7 @@ func TestParse(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if diff := cmp.Diff(uri.Parse(tt.uri), tt.want); diff != "" {
+			if diff := cmp.Diff(uri.Parse(tt.s), tt.want); diff != "" {
 				t.Errorf("%s: (-got, +want)\n%s", tt.name, diff)
 			}
 		})

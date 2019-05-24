@@ -104,8 +104,8 @@ type State struct {
 }
 
 // Parse parses and creates a new URI from uri.
-func Parse(uri string) *URI {
-	u, err := url.Parse(uri)
+func Parse(s string) *URI {
+	u, err := url.Parse(s)
 	if err != nil {
 		panic(fmt.Sprintf("url.Parse: %#v\n", err))
 	}
