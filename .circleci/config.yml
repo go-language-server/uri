@@ -1,7 +1,7 @@
 version: 2.1
 
 orbs:
-  golang: cci-orb/golang@0.0.8
+  golang: cci-orb/golang@volatile
   codecov: codecov/codecov@volatile
 
 defaults: &defaults
@@ -15,8 +15,7 @@ jobs:
     <<: *defaults
     steps:
       - checkout
-      - golang/gomod:
-          file: "go.mod"
+      - golang/gomod
       - run:
           name: Test and collect coverages
           command: |
@@ -34,8 +33,7 @@ jobs:
     <<: *defaults
     steps:
       - checkout
-      - golang/gomod:
-          file: "go.mod"
+      - golang/gomod
       - run:
           name: Run lint for sources
           command: |
