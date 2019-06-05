@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"net/url"
 	"path/filepath"
+	"strconv"
+	"strings"
 
 	"golang.org/x/xerrors"
 )
@@ -23,6 +25,15 @@ const (
 
 	// HTTPSScheme schema of https.
 	HTTPSScheme = "https"
+)
+
+const (
+	keyAuthority = "authority"
+	keyFragment  = "fragment"
+	keyFsPath    = "fsPath"
+	keyPath      = "path"
+	keyQuery     = "query"
+	keyScheme    = "scheme"
 )
 
 // URI Uniform Resource Identifier (URI) http://tools.ietf.org/html/rfc3986.
@@ -84,105 +95,60 @@ type URI struct {
 
 // MarshalJSON implements json.Marshaler.
 func (u *URI) MarshalJSON() ([]byte, error) {
-	buf := bytes.NewBuffer(make([]byte, 0))
+	buf := new(bytes.Buffer)
+
 	buf.WriteString("{")
 
-	comma := false
-	// "Authority" field is required
-	// only required object types supported for marshal checking (for now)
-	// Marshal the "authority" field
-	if comma {
-		buf.WriteString(",")
-	}
-
-	buf.WriteString("\"authority\": ")
-	if tmp, err := json.Marshal(u.Authority); err != nil {
+	buf.WriteString(`"` + strconv.Quote(keyAuthority) + `: "`)
+	authority, err := json.Marshal(u.Authority)
+	if err != nil {
 		return nil, err
-	} else {
-		buf.Write(tmp)
 	}
+	buf.Write(authority)
 
-	comma = true
-	// "Fragment" field is required
-	// only required object types supported for marshal checking (for now)
-	// Marshal the "fragment" field
-	if comma {
-		buf.WriteString(",")
-	}
-
-	buf.WriteString("\"fragment\": ")
-	if tmp, err := json.Marshal(u.Fragment); err != nil {
+	buf.WriteString(",")
+	buf.WriteString(`"` + strconv.Quote(keyFragment) + `: "`)
+	fragment, err := json.Marshal(u.Fragment)
+	if err != nil {
 		return nil, err
-	} else {
-		buf.Write(tmp)
 	}
+	buf.Write(fragment)
 
-	comma = true
-	// "FsPath" field is required
-	// only required object types supported for marshal checking (for now)
-	// Marshal the "fsPath" field
-	if comma {
-		buf.WriteString(",")
-	}
-
-	buf.WriteString("\"fsPath\": ")
-	if tmp, err := json.Marshal(u.FsPath); err != nil {
+	buf.WriteString(",")
+	buf.WriteString(`"` + strconv.Quote(keyFsPath) + `: "`)
+	fsPath, err := json.Marshal(u.FsPath)
+	if err != nil {
 		return nil, err
-	} else {
-		buf.Write(tmp)
 	}
+	buf.Write(fsPath)
 
-	comma = true
-	// "Path" field is required
-	// only required object types supported for marshal checking (for now)
-	// Marshal the "path" field
-	if comma {
-		buf.WriteString(",")
-	}
-
-	buf.WriteString("\"path\": ")
-	if tmp, err := json.Marshal(u.Path); err != nil {
+	buf.WriteString(",")
+	buf.WriteString(`"` + strconv.Quote(keyPath) + `: "`)
+	path, err := json.Marshal(u.Path)
+	if err != nil {
 		return nil, err
-	} else {
-		buf.Write(tmp)
 	}
+	buf.Write(path)
 
-	comma = true
-	// "Query" field is required
-	// only required object types supported for marshal checking (for now)
-	// Marshal the "query" field
-	if comma {
-		buf.WriteString(",")
-	}
-
-	buf.WriteString("\"query\": ")
-	if tmp, err := json.Marshal(u.Query); err != nil {
+	buf.WriteString(",")
+	buf.WriteString(`"` + strconv.Quote(keyQuery) + `: "`)
+	query, err := json.Marshal(u.Query)
+	if err != nil {
 		return nil, err
-	} else {
-		buf.Write(tmp)
 	}
+	buf.Write(query)
 
-	comma = true
-	// "Scheme" field is required
-	// only required object types supported for marshal checking (for now)
-	// Marshal the "scheme" field
-	if comma {
-		buf.WriteString(",")
-	}
-
-	buf.WriteString("\"scheme\": ")
-	if tmp, err := json.Marshal(u.Scheme); err != nil {
+	buf.WriteString(",")
+	buf.WriteString(`"` + strconv.Quote(keyScheme) + `: "`)
+	scheme, err := json.Marshal(u.Scheme)
+	if err != nil {
 		return nil, err
-	} else {
-		buf.Write(tmp)
 	}
-
-	comma = true
+	buf.Write(scheme)
 
 	buf.WriteString("}")
-	rv := buf.Bytes()
 
-	return rv, nil
+	return buf.Bytes(), nil
 }
 
 // UnmarshalJSON implements json.Unmarshaler.
@@ -202,37 +168,37 @@ func (u *URI) UnmarshalJSON(b []byte) error {
 	// parse all the defined properties
 	for k, v := range jm {
 		switch k {
-		case "authority":
+		case keyAuthority:
 			if err := json.Unmarshal([]byte(v), &u.Authority); err != nil {
 				return err
 			}
 			authorityReceived = true
 
-		case "fragment":
+		case keyFragment:
 			if err := json.Unmarshal([]byte(v), &u.Fragment); err != nil {
 				return err
 			}
 			fragmentReceived = true
 
-		case "fsPath":
+		case keyFsPath:
 			if err := json.Unmarshal([]byte(v), &u.FsPath); err != nil {
 				return err
 			}
 			fsPathReceived = true
 
-		case "path":
+		case keyPath:
 			if err := json.Unmarshal([]byte(v), &u.Path); err != nil {
 				return err
 			}
 			pathReceived = true
 
-		case "query":
+		case keyQuery:
 			if err := json.Unmarshal([]byte(v), &u.Query); err != nil {
 				return err
 			}
 			queryReceived = true
 
-		case "scheme":
+		case keyScheme:
 			if err := json.Unmarshal([]byte(v), &u.Scheme); err != nil {
 				return err
 			}
@@ -245,32 +211,32 @@ func (u *URI) UnmarshalJSON(b []byte) error {
 
 	// check if authority (a required property) was received
 	if !authorityReceived {
-		return xerrors.New("\"authority\" is required but was not present")
+		return xerrors.Errorf("%q is required but was not present", keyAuthority)
 	}
 
 	// check if fragment (a required property) was received
 	if !fragmentReceived {
-		return xerrors.New("\"fragment\" is required but was not present")
+		return xerrors.Errorf("%q is required but was not present", keyFragment)
 	}
 
 	// check if fsPath (a required property) was received
 	if !fsPathReceived {
-		return xerrors.New("\"fsPath\" is required but was not present")
+		return xerrors.Errorf("%q is required but was not present", keyFsPath)
 	}
 
 	// check if path (a required property) was received
 	if !pathReceived {
-		return xerrors.New("\"path\" is required but was not present")
+		return xerrors.Errorf("%q is required but was not present", keyPath)
 	}
 
 	// check if query (a required property) was received
 	if !queryReceived {
-		return xerrors.New("\"query\" is required but was not present")
+		return xerrors.Errorf("%q is required but was not present", keyQuery)
 	}
 
 	// check if scheme (a required property) was received
 	if !schemeReceived {
-		return xerrors.New("\"scheme\" is required but was not present")
+		return xerrors.Errorf("%q is required but was not present", keyScheme)
 	}
 
 	return nil
