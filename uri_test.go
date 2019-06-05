@@ -24,10 +24,9 @@ func TestParse(t *testing.T) {
 			name: "ValidFileScheme",
 			s:    "file://code.visualstudio.com/docs/extensions/overview.md",
 			want: &uri.URI{
-				Scheme:    uri.FileScheme,
-				Authority: "code.visualstudio.com",
-				Path:      "/docs/extensions/overview.md",
-				FsPath:    filepath.FromSlash("/docs/extensions/overview.md"),
+				Scheme: uri.FileScheme,
+				Path:   "/docs/extensions/overview.md",
+				FsPath: filepath.FromSlash("/docs/extensions/overview.md"),
 			},
 			wantErr: false,
 		},
@@ -65,7 +64,12 @@ func TestParse(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if diff := cmp.Diff(uri.Parse(tt.s), tt.want, cmp.AllowUnexported(*tt.want)); (diff != "") != tt.wantErr {
+			got, err := uri.Parse(tt.s)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("wantErr: %t, err: %#v", tt.wantErr, err)
+				return
+			}
+			if diff := cmp.Diff(got, tt.want, cmp.AllowUnexported(*tt.want)); (diff != "") != tt.wantErr {
 				t.Errorf("%s: (-got, +want)\n%s", tt.name, diff)
 			}
 		})
@@ -131,12 +135,9 @@ func TestFrom(t *testing.T) {
 				fragment:  "nose",
 			},
 			want: &uri.URI{
-				Scheme:    uri.FileScheme,
-				Authority: "example.com",
-				Path:      "/over/there",
-				FsPath:    filepath.FromSlash("/over/there"),
-				Query:     "name=ferret",
-				Fragment:  "nose",
+				Scheme: uri.FileScheme,
+				Path:   "/over/there",
+				FsPath: filepath.FromSlash("/over/there"),
 			},
 		},
 		{
@@ -152,7 +153,7 @@ func TestFrom(t *testing.T) {
 				Scheme:    uri.HTTPScheme,
 				Authority: "example.com:8042",
 				Path:      "/over/there",
-				Query:     "name=ferret",
+				Query:     "name%3Dferret",
 				Fragment:  "nose",
 			},
 		},
@@ -169,7 +170,7 @@ func TestFrom(t *testing.T) {
 				Scheme:    uri.HTTPSScheme,
 				Authority: "example.com:8042",
 				Path:      "/over/there",
-				Query:     "name=ferret",
+				Query:     "name%3Dferret",
 				Fragment:  "nose",
 			},
 		},
@@ -188,12 +189,12 @@ func TestFrom(t *testing.T) {
 
 func TestURI_String(t *testing.T) {
 	type fields struct {
-		Authority string
-		Fragment  string
-		FsPath    string
-		Path      string
-		Query     string
 		Scheme    string
+		Authority string
+		Path      string
+		FsPath    string
+		Query     string
+		Fragment  string
 	}
 	tests := []struct {
 		name   string
@@ -203,34 +204,33 @@ func TestURI_String(t *testing.T) {
 		{
 			name: "ValidFileScheme",
 			fields: fields{
-				Authority: "code.visualstudio.com",
-				Path:      "/docs/extensions/overview.md",
-				FsPath:    filepath.FromSlash("/docs/extensions/overview.md"),
-				Scheme:    string(uri.FileScheme),
+				Scheme: string(uri.FileScheme),
+				Path:   "docs/extensions/overview.md",
+				FsPath: filepath.FromSlash("docs/extensions/overview.md"),
 			},
-			want: "file://code.visualstudio.com/docs/extensions/overview.md",
+			want: "file://docs/extensions/overview.md",
 		},
 		{
 			name: "ValidHTTPScheme",
 			fields: fields{
+				Scheme:    string(uri.HTTPScheme),
 				Authority: "code.visualstudio.com",
-				Fragment:  "frag",
 				Path:      "/docs/extensions/overview",
 				FsPath:    filepath.FromSlash("/docs/extensions/overview"),
 				Query:     "test",
-				Scheme:    string(uri.HTTPScheme),
+				Fragment:  "frag",
 			},
 			want: "http://code.visualstudio.com/docs/extensions/overview?test#frag",
 		},
 		{
 			name: "ValidHTTPSScheme",
 			fields: fields{
+				Scheme:    string(uri.HTTPSScheme),
 				Authority: "code.visualstudio.com",
-				Fragment:  "frag",
 				Path:      "/docs/extensions/overview",
 				FsPath:    filepath.FromSlash("/docs/extensions/overview"),
 				Query:     "test",
-				Scheme:    string(uri.HTTPSScheme),
+				Fragment:  "frag",
 			},
 			want: "https://code.visualstudio.com/docs/extensions/overview?test#frag",
 		},
