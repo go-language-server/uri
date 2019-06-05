@@ -54,7 +54,29 @@ linters-settings:
 
 linters:
   enable:
-  enable-all: true
+    - deadcode
+    - depguard
+    - dupl
+    - errcheck
+    - goconst
+    - gocritic
+    - gofmt
+    - goimports
+    - golint
+    - ineffassign
+    - maligned
+    - misspell
+    - prealloc
+    - structcheck
+    - typecheck
+    - unconvert
+    - varcheck
+    - gosimple
+    - govet
+    - interfacer
+    - staticcheck
+    - stylecheck
+    - unparam
   disable:
     - gochecknoglobals
     - gochecknoinits
@@ -62,10 +84,15 @@ linters:
     - gosec
     - lll
     - nakedret
+    - unused
   fast: true
 
 issues:
-  exclude-use-default: false
+  exclude-rules:
+    - path: "const.go"
+      linters:
+        - golint
+        - misspell
 
 output:
   format: colored-line-number
