@@ -31,11 +31,14 @@ linters-settings:
       - style
       - performance
       - experimental
+      - opinionated
     settings:
-      captLocal:
-        paramsOnly: true
+      hugeParam:
+        sizeThreshold: 128
+      rangeExprCopy:
+        sizeThreshold: 512
       rangeValCopy:
-        sizeThreshold: 32
+        sizeThreshold: 128
   maligned:
     suggest-new: true
   misspell:
