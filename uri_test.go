@@ -10,6 +10,38 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
+func TestFile(t *testing.T) {
+	tests := []struct {
+		name    string
+		path    string
+		want    URI
+		wantErr bool
+	}{
+		{
+			name:    "ValidFileScheme",
+			path:    "/users/me/c#-projects/",
+			want:    URI(FileScheme + hierPart + "/users/me/c%23-projects"),
+			wantErr: false,
+		},
+		{
+			name:    "Invalid",
+			path:    "users-me-c#-projects",
+			want:    URI(""),
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if diff := cmp.Diff(File(tt.path), tt.want); (diff != "") != tt.wantErr {
+				t.Errorf("%s: (-got, +want)\n%s", tt.name, diff)
+			}
+		})
+	}
+}
+
 func TestParse(t *testing.T) {
 	tests := []struct {
 		name string
@@ -44,38 +76,6 @@ func TestParse(t *testing.T) {
 			}
 
 			if diff := cmp.Diff(got, tt.want); diff != "" {
-				t.Errorf("%s: (-got, +want)\n%s", tt.name, diff)
-			}
-		})
-	}
-}
-
-func TestFile(t *testing.T) {
-	tests := []struct {
-		name    string
-		path    string
-		want    URI
-		wantErr bool
-	}{
-		{
-			name:    "ValidFileScheme",
-			path:    "/users/me/c#-projects/",
-			want:    URI(FileScheme + hierPart + "/users/me/c%23-projects"),
-			wantErr: false,
-		},
-		{
-			name:    "Invalid",
-			path:    "users-me-c#-projects",
-			want:    URI(""),
-			wantErr: true,
-		},
-	}
-	for _, tt := range tests {
-		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			if diff := cmp.Diff(File(tt.path), tt.want); (diff != "") != tt.wantErr {
 				t.Errorf("%s: (-got, +want)\n%s", tt.name, diff)
 			}
 		})

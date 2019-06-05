@@ -47,8 +47,8 @@ type URI string
 
 // Filename returns the file path for the given URI. It will return an error if
 // the URI is invalid, or if the URI does not have the file scheme.
-func (uri URI) Filename() (string, error) {
-	filename, err := filename(uri)
+func (u URI) Filename() (string, error) {
+	filename, err := filename(u)
 	if err != nil {
 		return "", err
 	}
@@ -71,16 +71,6 @@ func filename(uri URI) (string, error) {
 	}
 
 	return u.Path, nil
-}
-
-// MarshalJSON implements json.Marshaler.
-func (u URI) MarshalJSON() ([]byte, error) {
-	return nil, nil
-}
-
-// UnmarshalJSON implements json.Unmarshaler.
-func (u *URI) UnmarshalJSON(b []byte) error {
-	return nil
 }
 
 // New parses and creates a new URI from s.
