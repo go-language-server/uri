@@ -91,6 +91,9 @@ type URI struct {
 	//
 	// The part before the first colon.
 	Scheme string `json:"scheme"`
+
+	formatted    string
+	skipEncoding bool
 }
 
 // MarshalJSON implements json.Marshaler.
@@ -243,44 +246,44 @@ func (u *URI) UnmarshalJSON(b []byte) error {
 }
 
 // String implements fmt.Stringer.
-func (u *URI) String() string {
+func (u URI) String() string {
 	switch u.Scheme {
-	case FileScheme:
-		uri := &url.URL{
-			Scheme: u.Scheme,
-			Path:   u.Path,
+	case FileScheme, HTTPScheme, HTTPSScheme:
+		if u.skipEncoding {
+			return format(u, false) // fast-path
 		}
-		return uri.String()
 
-	case HTTPScheme, HTTPSScheme:
-		uri := &url.URL{
-			Scheme:   u.Scheme,
-			Host:     u.Authority,
-			Path:     u.Path,
-			RawQuery: url.QueryEscape(u.Query),
-			Fragment: u.Fragment,
+		if u.formatted == "" {
+			u.formatted = format(u, true)
+			u.skipEncoding = true
 		}
-		return uri.String()
+		return u.formatted
 
 	default:
-		return "unknown schema"
+		return "unknown scheme"
 	}
 }
 
 // Parse parses and creates a new URI from uri.
-func Parse(s string) *URI {
-	u, err := url.Parse(s)
+func Parse(s string) (u *URI) {
+	us, err := url.Parse(s)
 	if err != nil {
 		panic(fmt.Sprintf("url.Parse: %#v\n", err))
 	}
 
-	return &URI{
-		Scheme:    u.Scheme,
-		Authority: u.Host,
-		Path:      u.Path,
-		Query:     u.Query().Encode(),
-		Fragment:  u.Fragment,
+	u = &URI{
+		Scheme:    us.Scheme,
+		Authority: us.Host,
+		Path:      us.Path,
+		Query:     us.Query().Encode(),
+		Fragment:  us.Fragment,
 	}
+
+	if u.Scheme == FileScheme {
+		u.FsPath = filepath.FromSlash(us.Path)
+	}
+
+	return u
 }
 
 // File parses and creates a new URI filesystem path from path.
@@ -293,12 +296,205 @@ func File(path string) *URI {
 }
 
 // From returns the new URI from args.
-func From(scheme, authority, path, query, fragment string) *URI {
-	return &URI{
+func From(scheme, authority, path, query, fragment string) (u *URI) {
+	u = &URI{
 		Scheme:    scheme,
 		Authority: authority,
 		Path:      path,
 		Query:     query,
 		Fragment:  fragment,
 	}
+	if scheme == FileScheme {
+		u.FsPath = filepath.FromSlash(path)
+	}
+
+	return u
+}
+
+var encodeTable = map[byte]string{
+	Colon:              "%3A", // gen-delims
+	Slash:              "%2F",
+	QuestionMark:       "%3F",
+	Hash:               "%23",
+	OpenSquareBracket:  "%5B",
+	CloseSquareBracket: "%5D",
+	AtSign:             "%40",
+	ExclamationMark:    "%21", // sub-delims
+	DollarSign:         "%24",
+	Ampersand:          "%26",
+	SingleQuote:        "%27",
+	OpenParen:          "%28",
+	CloseParen:         "%29",
+	Asterisk:           "%2A",
+	Plus:               "%2B",
+	Comma:              "%2C",
+	Semicolon:          "%3B",
+	Equals:             "%3D",
+	Space:              "%20",
+}
+
+func encodeFast(uri string, allowSlash bool) string {
+	b := new(strings.Builder)
+	nativeEncodePos := -1
+
+	for i := 0; i < len(uri); i++ {
+		code := uri[i]
+
+		switch {
+		case code >= LowerA && code <= LowerZ,
+			code >= UpperA && code <= UpperZ,
+			code >= Digit0 && code <= Digit9,
+			code == Dash,
+			code == Period,
+			code == Underline,
+			code == Tilde,
+			allowSlash && (code == Slash):
+
+			if nativeEncodePos != -1 {
+				b.WriteString(url.PathEscape(uri[nativeEncodePos:i]))
+				nativeEncodePos = -1
+			}
+			if b.String() != "" {
+				b.WriteString(uri[:i])
+			}
+
+		default:
+			if b.String() == "" {
+				b.WriteString(uri[0:i])
+			}
+
+			escaped := encodeTable[code]
+			if escaped != "" {
+				if nativeEncodePos != -1 {
+					b.WriteString(url.PathEscape(uri[nativeEncodePos:i]))
+				}
+
+				b.WriteString(escaped)
+			} else {
+				nativeEncodePos = i
+			}
+		}
+	}
+
+	if nativeEncodePos != -1 {
+		b.WriteString(uri[:nativeEncodePos])
+	}
+
+	return b.String()
+}
+
+func encodeMinimal(path string, _ bool) string {
+	b := new(strings.Builder)
+
+	for i := 0; i < len(path); i++ {
+		code := path[i]
+		if code == Hash || code == QuestionMark {
+			if b.String() == "" {
+				b.WriteString(path[0:i])
+			}
+			b.WriteString(encodeTable[code])
+		} else {
+			if b.String() != "" {
+				b.WriteByte(path[i])
+			}
+		}
+	}
+
+	res := b.String()
+	if res == "" {
+		res = path
+	}
+
+	return res
+}
+
+func format(uri URI, skipEncoding bool) string {
+	var encoder func(string, bool) string
+	switch skipEncoding {
+	case true:
+		encoder = encodeMinimal
+	case false:
+		encoder = encodeFast
+	}
+
+	b := new(strings.Builder)
+
+	scheme := uri.Scheme
+	if scheme != "" {
+		b.WriteString(scheme)
+		b.WriteByte(':')
+	}
+
+	authority := uri.Authority
+	if authority != "" || scheme == FileScheme {
+		b.WriteRune(filepath.Separator)
+		b.WriteRune(filepath.Separator)
+	}
+
+	if authority != "" {
+		idx := strings.LastIndex(authority, "@")
+		if idx != -1 {
+			// <user>@<auth>
+			userinfo := authority[:idx]
+			authority = authority[idx+1:]
+
+			uiIdx := strings.Index(userinfo, ":")
+			if uiIdx == -1 {
+				b.WriteString(encoder(userinfo, false))
+			} else {
+				// <user>:<pass>@<auth>
+				b.WriteString(encoder(userinfo[:idx], false))
+				b.WriteRune(':')
+				b.WriteString(encoder(userinfo[idx+1:], false))
+			}
+
+			b.WriteRune('@')
+		}
+
+		authority = strings.ToLower(authority)
+
+		idx = strings.Index(authority, ":")
+		if idx == -1 {
+			b.WriteString(encoder(authority, false))
+		} else {
+			// <auth>:<port>
+			b.WriteString(encoder(authority[:idx], false))
+			b.WriteString(authority[idx:])
+		}
+	}
+
+	if path := uri.Path; path != "" {
+		// lower-case windows drive letters in /C:/fff or C:/fff
+		if len(path) >= 3 && path[0] == Slash && path[2] == Colon {
+			code := path[1]
+			if code >= UpperA && code <= UpperZ {
+				path = string(code+32) + ":" + string(path[3]) // "/c:".length == 3
+			}
+		} else if len(path) >= 2 && path[1] == Colon {
+			code := path[0]
+			if code >= UpperA && code <= UpperZ {
+				path = string(code+32) + ":" + string(path[2]) // "/c:".length == 3
+			}
+		}
+
+		// encode the rest of the path
+		b.WriteString(encoder(path, true))
+	}
+
+	if query := uri.Query; query != "" {
+		b.WriteRune('?')
+		b.WriteString(encoder(query, false))
+	}
+
+	if fragment := uri.Fragment; fragment != "" {
+		b.WriteRune('#')
+
+		if skipEncoding {
+			b.WriteString(fragment)
+		} else {
+			b.WriteString(encodeFast(fragment, false))
+		}
+	}
+
+	return b.String()
 }
