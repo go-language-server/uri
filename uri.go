@@ -231,17 +231,16 @@ func (u *URI) UnmarshalJSON(b []byte) error {
 }
 
 // String implements fmt.Stringer.
-func (u URI) String() string {
+func (u *URI) String() string {
 	switch u.Scheme {
 	case FileScheme, HTTPScheme, HTTPSScheme:
 		if u.skipEncoding {
-			return format(u, false) // fast-path
+			return u.formatted
 		}
 
-		if u.formatted == "" {
-			u.formatted = format(u, true)
-			u.skipEncoding = true
-		}
+		u.formatted = format(*u, true)
+		u.skipEncoding = true
+
 		return u.formatted
 
 	default:
@@ -271,12 +270,12 @@ var encodeTable = map[byte]string{
 	Space:              "%20",
 }
 
-func encodeFast(uri string, allowSlash bool) string {
+func encodeFast(uriComponent string, allowSlash bool) string {
 	b := new(strings.Builder)
 	nativeEncodePos := -1
 
-	for i := 0; i < len(uri); i++ {
-		code := uri[i]
+	for pos := 0; pos < len(uriComponent); pos++ {
+		code := uriComponent[pos]
 
 		switch {
 		case code >= LowerA && code <= LowerZ,
@@ -289,33 +288,37 @@ func encodeFast(uri string, allowSlash bool) string {
 			allowSlash && (code == Slash):
 
 			if nativeEncodePos != -1 {
-				b.WriteString(url.PathEscape(uri[nativeEncodePos:i]))
+				b.WriteString(uriComponent[nativeEncodePos:pos])
 				nativeEncodePos = -1
 			}
-			if b.String() != "" {
-				b.WriteString(uri[:i])
+			str := b.String()
+			if str != "" {
+				b.WriteString(str)
+				b.WriteString(uriComponent[:pos])
 			}
 
 		default:
-			if b.String() == "" {
-				b.WriteString(uri[0:i])
+			str := b.String()
+			if str != "" {
+				b.WriteString(str)
+				b.WriteString(uriComponent[0:pos])
 			}
 
 			escaped := encodeTable[code]
 			if escaped != "" {
 				if nativeEncodePos != -1 {
-					b.WriteString(url.PathEscape(uri[nativeEncodePos:i]))
+					b.WriteString(uriComponent[nativeEncodePos:pos])
 				}
 
 				b.WriteString(escaped)
-			} else {
-				nativeEncodePos = i
+			} else if nativeEncodePos == -1 {
+				nativeEncodePos = pos
 			}
 		}
 	}
 
 	if nativeEncodePos != -1 {
-		b.WriteString(uri[:nativeEncodePos])
+		b.WriteString(uriComponent[:nativeEncodePos])
 	}
 
 	return b.String()
@@ -404,7 +407,7 @@ func format(uri URI, skipEncoding bool) string {
 		if len(path) >= 3 && path[0] == Slash && path[2] == Colon {
 			code := path[1]
 			if code >= UpperA && code <= UpperZ {
-				path = string(code+32) + ":" + string(path[3]) // "/c:".length == 3
+				path = "/" + string(code+32) + ":" + string(path[3]) // "/c:".length == 3
 			}
 		} else if len(path) >= 2 && path[1] == Colon {
 			code := path[0]
