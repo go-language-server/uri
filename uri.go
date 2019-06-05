@@ -28,12 +28,12 @@ const (
 )
 
 const (
-	keyAuthority = "authority"
-	keyFragment  = "fragment"
-	keyFsPath    = "fsPath"
-	keyPath      = "path"
-	keyQuery     = "query"
 	keyScheme    = "scheme"
+	keyAuthority = "authority"
+	keyPath      = "path"
+	keyFsPath    = "fsPath"
+	keyQuery     = "query"
+	keyFragment  = "fragment"
 )
 
 // URI Uniform Resource Identifier (URI) http://tools.ietf.org/html/rfc3986.
@@ -50,12 +50,17 @@ const (
 //        / \ /                        \
 //        urn:example:animal:ferret:nose
 type URI struct {
+	// Scheme is the 'http' part of 'http://www.msft.com/some/path?query#fragment'.
+	//
+	// The part before the first colon.
+	Scheme string `json:"scheme"`
+
 	// Authority is the 'www.msft.com' part of 'http://www.msft.com/some/path?query#fragment'.
 	// The part between the first double slashes and the next slash.
 	Authority string `json:"authority"`
 
-	// Fragment is the 'fragment' part of 'http://www.msft.com/some/path?query#fragment'.
-	Fragment string `json:"fragment"`
+	// Path is the '/some/path' part of 'http://www.msft.com/some/path?query#fragment'.
+	Path string `json:"path"`
 
 	// FsPath returns a string representing the corresponding file system path of this URI.
 	//
@@ -79,18 +84,13 @@ type URI struct {
 	// namely the server name, would be missing.
 	//
 	// Therefore `URI#fsPath` exists - it's sugar to ease working with URIs that represent files on disk (`file` scheme).
-	FsPath string `json:"fsPath"`
-
-	// Path is the '/some/path' part of 'http://www.msft.com/some/path?query#fragment'.
-	Path string `json:"path"`
+	FsPath string `json:"fsPath,omitempty"`
 
 	// Query is the 'query' part of 'http://www.msft.com/some/path?query#fragment'.
-	Query string `json:"query"`
+	Query string `json:"query,omitempty"`
 
-	// Scheme is the 'http' part of 'http://www.msft.com/some/path?query#fragment'.
-	//
-	// The part before the first colon.
-	Scheme string `json:"scheme"`
+	// Fragment is the 'fragment' part of 'http://www.msft.com/some/path?query#fragment'.
+	Fragment string `json:"fragment,omitempty"`
 
 	formatted    string
 	skipEncoding bool
@@ -102,28 +102,20 @@ func (u *URI) MarshalJSON() ([]byte, error) {
 
 	buf.WriteString("{")
 
+	buf.WriteString(`"` + strconv.Quote(keyScheme) + `: "`)
+	scheme, err := json.Marshal(u.Scheme)
+	if err != nil {
+		return nil, err
+	}
+	buf.Write(scheme)
+
+	buf.WriteString(",")
 	buf.WriteString(`"` + strconv.Quote(keyAuthority) + `: "`)
 	authority, err := json.Marshal(u.Authority)
 	if err != nil {
 		return nil, err
 	}
 	buf.Write(authority)
-
-	buf.WriteString(",")
-	buf.WriteString(`"` + strconv.Quote(keyFragment) + `: "`)
-	fragment, err := json.Marshal(u.Fragment)
-	if err != nil {
-		return nil, err
-	}
-	buf.Write(fragment)
-
-	buf.WriteString(",")
-	buf.WriteString(`"` + strconv.Quote(keyFsPath) + `: "`)
-	fsPath, err := json.Marshal(u.FsPath)
-	if err != nil {
-		return nil, err
-	}
-	buf.Write(fsPath)
 
 	buf.WriteString(",")
 	buf.WriteString(`"` + strconv.Quote(keyPath) + `: "`)
@@ -133,21 +125,35 @@ func (u *URI) MarshalJSON() ([]byte, error) {
 	}
 	buf.Write(path)
 
-	buf.WriteString(",")
-	buf.WriteString(`"` + strconv.Quote(keyQuery) + `: "`)
-	query, err := json.Marshal(u.Query)
-	if err != nil {
-		return nil, err
+	if u.Query != "" {
+		buf.WriteString(",")
+		buf.WriteString(`"` + strconv.Quote(keyQuery) + `: "`)
+		query, err := json.Marshal(u.Query)
+		if err != nil {
+			return nil, err
+		}
+		buf.Write(query)
 	}
-	buf.Write(query)
 
-	buf.WriteString(",")
-	buf.WriteString(`"` + strconv.Quote(keyScheme) + `: "`)
-	scheme, err := json.Marshal(u.Scheme)
-	if err != nil {
-		return nil, err
+	if u.FsPath != "" {
+		buf.WriteString(",")
+		buf.WriteString(`"` + strconv.Quote(keyFsPath) + `: "`)
+		fsPath, err := json.Marshal(u.FsPath)
+		if err != nil {
+			return nil, err
+		}
+		buf.Write(fsPath)
 	}
-	buf.Write(scheme)
+
+	if u.Fragment != "" {
+		buf.WriteString(",")
+		buf.WriteString(`"` + strconv.Quote(keyFragment) + `: "`)
+		fragment, err := json.Marshal(u.Fragment)
+		if err != nil {
+			return nil, err
+		}
+		buf.Write(fragment)
+	}
 
 	buf.WriteString("}")
 
@@ -156,12 +162,9 @@ func (u *URI) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON implements json.Unmarshaler.
 func (u *URI) UnmarshalJSON(b []byte) error {
-	var authorityReceived bool
-	var fragmentReceived bool
-	var fsPathReceived bool
-	var pathReceived bool
-	var queryReceived bool
 	var schemeReceived bool
+	var authorityReceived bool
+	var pathReceived bool
 	var jm map[string]json.RawMessage
 
 	if err := json.Unmarshal(b, &jm); err != nil {
@@ -171,23 +174,17 @@ func (u *URI) UnmarshalJSON(b []byte) error {
 	// parse all the defined properties
 	for k, v := range jm {
 		switch k {
+		case keyScheme:
+			if err := json.Unmarshal([]byte(v), &u.Scheme); err != nil {
+				return err
+			}
+			schemeReceived = true
+
 		case keyAuthority:
 			if err := json.Unmarshal([]byte(v), &u.Authority); err != nil {
 				return err
 			}
 			authorityReceived = true
-
-		case keyFragment:
-			if err := json.Unmarshal([]byte(v), &u.Fragment); err != nil {
-				return err
-			}
-			fragmentReceived = true
-
-		case keyFsPath:
-			if err := json.Unmarshal([]byte(v), &u.FsPath); err != nil {
-				return err
-			}
-			fsPathReceived = true
 
 		case keyPath:
 			if err := json.Unmarshal([]byte(v), &u.Path); err != nil {
@@ -195,46 +192,24 @@ func (u *URI) UnmarshalJSON(b []byte) error {
 			}
 			pathReceived = true
 
+		case keyFsPath:
+			if err := json.Unmarshal([]byte(v), &u.FsPath); err != nil {
+				return err
+			}
+
 		case keyQuery:
 			if err := json.Unmarshal([]byte(v), &u.Query); err != nil {
 				return err
 			}
-			queryReceived = true
 
-		case keyScheme:
-			if err := json.Unmarshal([]byte(v), &u.Scheme); err != nil {
+		case keyFragment:
+			if err := json.Unmarshal([]byte(v), &u.Fragment); err != nil {
 				return err
 			}
-			schemeReceived = true
 
 		default:
 			return fmt.Errorf("additional property not allowed: \"" + k + "\"")
 		}
-	}
-
-	// check if authority (a required property) was received
-	if !authorityReceived {
-		return xerrors.Errorf("%q is required but was not present", keyAuthority)
-	}
-
-	// check if fragment (a required property) was received
-	if !fragmentReceived {
-		return xerrors.Errorf("%q is required but was not present", keyFragment)
-	}
-
-	// check if fsPath (a required property) was received
-	if !fsPathReceived {
-		return xerrors.Errorf("%q is required but was not present", keyFsPath)
-	}
-
-	// check if path (a required property) was received
-	if !pathReceived {
-		return xerrors.Errorf("%q is required but was not present", keyPath)
-	}
-
-	// check if query (a required property) was received
-	if !queryReceived {
-		return xerrors.Errorf("%q is required but was not present", keyQuery)
 	}
 
 	// check if scheme (a required property) was received
@@ -242,11 +217,21 @@ func (u *URI) UnmarshalJSON(b []byte) error {
 		return xerrors.Errorf("%q is required but was not present", keyScheme)
 	}
 
+	// check if authority (a required property) was received
+	if !authorityReceived {
+		return xerrors.Errorf("%q is required but was not present", keyAuthority)
+	}
+
+	// check if path (a required property) was received
+	if !pathReceived {
+		return xerrors.Errorf("%q is required but was not present", keyPath)
+	}
+
 	return nil
 }
 
 // String implements fmt.Stringer.
-func (u *URI) String() string {
+func (u URI) String() string {
 	switch u.Scheme {
 	case FileScheme, HTTPScheme, HTTPSScheme:
 		if u.skipEncoding {
@@ -262,53 +247,6 @@ func (u *URI) String() string {
 	default:
 		return "unknown scheme"
 	}
-}
-
-// Parse parses and creates a new URI from uri.
-func Parse(s string) (u *URI) {
-	us, err := url.Parse(s)
-	if err != nil {
-		panic(fmt.Sprintf("url.Parse: %#v\n", err))
-	}
-
-	u = &URI{
-		Scheme:    us.Scheme,
-		Authority: us.Host,
-		Path:      us.Path,
-		Query:     us.Query().Encode(),
-		Fragment:  us.Fragment,
-	}
-
-	if u.Scheme == FileScheme {
-		u.FsPath = filepath.FromSlash(us.Path)
-	}
-
-	return u
-}
-
-// File parses and creates a new URI filesystem path from path.
-func File(path string) *URI {
-	return &URI{
-		Scheme: FileScheme,
-		Path:   path,
-		FsPath: filepath.FromSlash(path),
-	}
-}
-
-// From returns the new URI from args.
-func From(scheme, authority, path, query, fragment string) (u *URI) {
-	u = &URI{
-		Scheme:    scheme,
-		Authority: authority,
-		Path:      path,
-		Query:     query,
-		Fragment:  fragment,
-	}
-	if scheme == FileScheme {
-		u.FsPath = filepath.FromSlash(path)
-	}
-
-	return u
 }
 
 var encodeTable = map[byte]string{
@@ -406,7 +344,7 @@ func encodeMinimal(path string, _ bool) string {
 	return res
 }
 
-func format(uri *URI, skipEncoding bool) string {
+func format(uri URI, skipEncoding bool) string {
 	var encoder func(string, bool) string
 	switch skipEncoding {
 	case true:
@@ -495,4 +433,66 @@ func format(uri *URI, skipEncoding bool) string {
 	}
 
 	return b.String()
+}
+
+// Parse parses and creates a new URI from uri.
+func Parse(s string) (u *URI, err error) {
+	us, err := url.Parse(s)
+	if err != nil {
+		return nil, xerrors.Errorf("url.Parse: %w\n", err)
+	}
+
+	switch us.Scheme {
+	case FileScheme:
+		u = &URI{
+			Scheme: FileScheme,
+			Path:   us.Path,
+			FsPath: filepath.FromSlash(us.Path),
+		}
+
+	case HTTPScheme, HTTPSScheme:
+		u = &URI{
+			Scheme:    us.Scheme,
+			Authority: us.Host,
+			Path:      us.Path,
+			Query:     us.Query().Encode(),
+			Fragment:  us.Fragment,
+		}
+	default:
+		return nil, xerrors.New("unknown scheme")
+	}
+
+	return u, nil
+}
+
+// File parses and creates a new URI filesystem path from path.
+func File(path string) *URI {
+	return &URI{
+		Scheme: FileScheme,
+		Path:   path,
+		FsPath: filepath.FromSlash(path),
+	}
+}
+
+// From returns the new URI from args.
+func From(scheme, authority, path, query, fragment string) (u *URI) {
+	switch scheme {
+	case FileScheme:
+		u = &URI{
+			Scheme: FileScheme,
+			Path:   path,
+			FsPath: filepath.FromSlash(path),
+		}
+
+	case HTTPScheme, HTTPSScheme:
+		u = &URI{
+			Scheme:    scheme,
+			Authority: authority,
+			Path:      path,
+			Query:     url.QueryEscape(query),
+			Fragment:  fragment,
+		}
+	}
+
+	return u
 }
