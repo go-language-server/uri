@@ -2,7 +2,7 @@
 
 [![CircleCI][circleci-badge]][circleci] [![godoc.org][godoc-badge]][godoc] [![codecov.io][codecov-badge]][codecov] [![Releases][release-badge]][release] [![GA][ga-badge]][ga]
 
-Package uri implementation vscode-uri for Go.
+Package uri is an implementation of the URI Uniform Resource Identifier(RFC3986) specification for Go.
 
 
 <!-- badge links -->
