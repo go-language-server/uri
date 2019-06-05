@@ -246,7 +246,7 @@ func (u *URI) UnmarshalJSON(b []byte) error {
 }
 
 // String implements fmt.Stringer.
-func (u URI) String() string {
+func (u *URI) String() string {
 	switch u.Scheme {
 	case FileScheme, HTTPScheme, HTTPSScheme:
 		if u.skipEncoding {
@@ -393,10 +393,8 @@ func encodeMinimal(path string, _ bool) string {
 				b.WriteString(path[0:i])
 			}
 			b.WriteString(encodeTable[code])
-		} else {
-			if b.String() != "" {
-				b.WriteByte(path[i])
-			}
+		} else if b.String() != "" {
+			b.WriteByte(path[i])
 		}
 	}
 
@@ -408,7 +406,7 @@ func encodeMinimal(path string, _ bool) string {
 	return res
 }
 
-func format(uri URI, skipEncoding bool) string {
+func format(uri *URI, skipEncoding bool) string {
 	var encoder func(string, bool) string
 	switch skipEncoding {
 	case true:
