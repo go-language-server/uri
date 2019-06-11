@@ -45,15 +45,15 @@ const (
 //        urn:example:animal:ferret:nose
 type URI string
 
-// Filename returns the file path for the given URI. It will return an error if
-// the URI is invalid, or if the URI does not have the file scheme.
-func (u URI) Filename() (string, error) {
+// Filename returns the file path for the given URI.
+// It is an error to call this on a URI that is not a valid filename.
+func (u URI) Filename() string {
 	filename, err := filename(u)
 	if err != nil {
-		return "", err
+		panic(err)
 	}
 
-	return filepath.FromSlash(filename), nil
+	return filepath.FromSlash(filename)
 }
 
 func filename(uri URI) (string, error) {
