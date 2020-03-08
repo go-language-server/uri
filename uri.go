@@ -5,14 +5,13 @@
 package uri
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"unicode"
-
-	"golang.org/x/xerrors"
 )
 
 const (
@@ -59,11 +58,11 @@ func (u URI) Filename() string {
 func filename(uri URI) (string, error) {
 	u, err := url.ParseRequestURI(string(uri))
 	if err != nil {
-		return "", xerrors.Errorf("failed to parse request URI: %w", err)
+		return "", fmt.Errorf("failed to parse request URI: %w", err)
 	}
 
 	if u.Scheme != FileScheme {
-		return "", xerrors.Errorf("only file URIs are supported, got %v", u.Scheme)
+		return "", fmt.Errorf("only file URIs are supported, got %v", u.Scheme)
 	}
 
 	if isWindowsDriveURI(u.Path) {
@@ -116,7 +115,7 @@ func File(path string) URI {
 func Parse(s string) (u URI, err error) {
 	us, err := url.Parse(s)
 	if err != nil {
-		return u, xerrors.Errorf("url.Parse: %w\n", err)
+		return u, fmt.Errorf("url.Parse: %w", err)
 	}
 
 	switch us.Scheme {
@@ -139,7 +138,7 @@ func Parse(s string) (u URI, err error) {
 		u = URI(ut.String())
 
 	default:
-		return u, xerrors.New("unknown scheme")
+		return u, errors.New("unknown scheme")
 	}
 
 	return
