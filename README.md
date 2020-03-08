@@ -7,7 +7,7 @@ Package uri is an implementation of the URI Uniform Resource Identifier(RFC3986)
 
 <!-- badge links -->
 [circleci]: https://app.circleci.com/pipelines/github/go-language-server/uri
-[pkg.go.dev]: https://pkg.go.dev/github.com/go-language-server/uri
+[pkg.go.dev]: https://pkg.go.dev/go.lsp.dev/uri
 [module]: https://github.com/go-language-server/uri/releases/latest
 [codecov]: https://codecov.io/gh/go-language-server/uri
 [ga]: https://github.com/go-language-server/uri

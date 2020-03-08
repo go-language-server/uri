@@ -1,4 +1,4 @@
-module github.com/go-language-server/uri
+module go.lsp.dev/uri
 
 go 1.13
 
