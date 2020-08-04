@@ -12,21 +12,21 @@ import (
 	"runtime"
 	"strings"
 	"unicode"
+
+	uripb "go.lsp.dev/api/uri"
 )
 
-const (
+type Scheme string
+
+var (
 	// FileScheme schema of filesystem path.
-	FileScheme = "file"
+	FileScheme = Scheme(strings.ToLower(uripb.Scheme_SCHEME_FILE.Enum().String()))
 
 	// HTTPScheme schema of http.
-	HTTPScheme = "http"
+	HTTPScheme = Scheme(strings.ToLower(uripb.Scheme_SCHEME_HTTP.Enum().String()))
 
 	// HTTPSScheme schema of https.
-	HTTPSScheme = "https"
-)
-
-const (
-	hierPart = "://"
+	HTTPSScheme = Scheme(strings.ToLower(uripb.Scheme_SCHEME_HTTPS.Enum().String()))
 )
 
 // URI Uniform Resource Identifier (URI) https://tools.ietf.org/html/rfc3986.
@@ -36,32 +36,36 @@ const (
 // and encoding.
 //
 //        foo://example.com:8042/over/there?name=ferret#nose
-//        \_/   \______________/\_________/ \_________/ \__/
-//         |           |            |            |        |
-//      scheme     authority       path        query   fragment
+//        \_/\/  \______________/\_________/ \_________/ \__/
+//         |  \         |            |            |        |
+//      scheme hier  authority       path        query   fragment
 //         |   _____________________|__
 //        / \ /                        \
 //        urn:example:animal:ferret:nose
-type URI string
+type URI = uripb.URI
+
+const (
+	hierPart = "://"
+)
 
 // Filename returns the file path for the given URI.
 // It is an error to call this on a URI that is not a valid filename.
-func (u URI) Filename() string {
-	filename, err := filename(u)
-	if err != nil {
-		panic(err)
-	}
+// func (u *URI) Filename() string {
+// 	filename, err := filename(u)
+// 	if err != nil {
+// 		panic(err)
+// 	}
+//
+// 	return filepath.FromSlash(filename)
+// }
 
-	return filepath.FromSlash(filename)
-}
-
-func filename(uri URI) (string, error) {
-	u, err := url.ParseRequestURI(string(uri))
+func filename(uri *URI) (string, error) {
+	u, err := url.ParseRequestURI(uri.Uri)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse request URI: %w", err)
 	}
 
-	if u.Scheme != FileScheme {
+	if u.Scheme != string(FileScheme) {
 		return "", fmt.Errorf("only file URIs are supported, got %v", u.Scheme)
 	}
 
@@ -73,20 +77,22 @@ func filename(uri URI) (string, error) {
 }
 
 // New parses and creates a new URI from s.
-func New(s string) URI {
+func New(s string) *URI {
 	if u, err := url.PathUnescape(s); err == nil {
 		s = u
 	}
 
-	if strings.HasPrefix(s, FileScheme+hierPart) {
-		return URI(s)
+	if strings.HasPrefix(s, string(FileScheme+hierPart)) {
+		return &URI{
+			Uri: s,
+		}
 	}
 
 	return File(s)
 }
 
 // File parses and creates a new filesystem URI from path.
-func File(path string) URI {
+func File(path string) *URI {
 	const goRootPragma = "$GOROOT"
 	if len(path) >= len(goRootPragma) && strings.EqualFold(goRootPragma, path[:len(goRootPragma)]) {
 		path = runtime.GOROOT() + path[len(goRootPragma):]
@@ -104,28 +110,32 @@ func File(path string) URI {
 
 	path = filepath.ToSlash(path)
 	u := url.URL{
-		Scheme: FileScheme,
+		Scheme: string(FileScheme),
 		Path:   path,
 	}
 
-	return URI(u.String())
+	return &URI{
+		Uri: u.String(),
+	}
 }
 
 // Parse parses and creates a new URI from s.
-func Parse(s string) (u URI, err error) {
+func Parse(s string) (u *URI, err error) {
 	us, err := url.Parse(s)
 	if err != nil {
 		return u, fmt.Errorf("url.Parse: %w", err)
 	}
 
-	switch us.Scheme {
+	switch Scheme(us.Scheme) {
 	case FileScheme:
 		ut := url.URL{
-			Scheme:  FileScheme,
+			Scheme:  us.Scheme,
 			Path:    us.Path,
 			RawPath: filepath.FromSlash(us.Path),
 		}
-		u = URI(ut.String())
+		u = &URI{
+			Uri: ut.String(),
+		}
 
 	case HTTPScheme, HTTPSScheme:
 		ut := url.URL{
@@ -135,7 +145,9 @@ func Parse(s string) (u URI, err error) {
 			RawQuery: us.Query().Encode(),
 			Fragment: us.Fragment,
 		}
-		u = URI(ut.String())
+		u = &URI{
+			Uri: ut.String(),
+		}
 
 	default:
 		return u, errors.New("unknown scheme")
@@ -145,25 +157,29 @@ func Parse(s string) (u URI, err error) {
 }
 
 // From returns the new URI from args.
-func From(scheme, authority, path, query, fragment string) URI {
-	switch scheme {
+func From(scheme, authority, path, query, fragment string) *URI {
+	switch Scheme(scheme) {
 	case FileScheme:
 		u := url.URL{
-			Scheme:  FileScheme,
+			Scheme:  string(scheme),
 			Path:    path,
 			RawPath: filepath.FromSlash(path),
 		}
-		return URI(u.String())
+		return &URI{
+			Uri: u.String(),
+		}
 
 	case HTTPScheme, HTTPSScheme:
 		u := url.URL{
-			Scheme:   scheme,
+			Scheme:   string(scheme),
 			Host:     authority,
 			Path:     path,
 			RawQuery: url.QueryEscape(query),
 			Fragment: fragment,
 		}
-		return URI(u.String())
+		return &URI{
+			Uri: u.String(),
+		}
 
 	default:
 		panic(fmt.Sprintf("unknown scheme: %s", scheme))

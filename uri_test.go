@@ -8,75 +8,79 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestFile(t *testing.T) {
-	tests := []struct {
-		name    string
+	tests := map[string]struct {
 		path    string
-		want    URI
+		want    *URI
 		wantErr bool
 	}{
-		{
-			name:    "ValidFileScheme",
-			path:    "/users/me/c#-projects/",
-			want:    URI(FileScheme + hierPart + "/users/me/c%23-projects"),
+		"ValidFileScheme": {
+			path: "/users/me/c#-projects/",
+			want: &URI{
+				Uri: FileScheme.Enum().String() + hierPart + "/users/me/c%23-projects",
+			},
 			wantErr: false,
 		},
-		{
-			name:    "Invalid",
+		"Invalid": {
 			path:    "users-me-c#-projects",
-			want:    URI(""),
+			want:    &URI{},
 			wantErr: true,
 		},
 	}
-	for _, tt := range tests {
+	for name, tt := range tests {
 		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			if diff := cmp.Diff(File(tt.path), tt.want); (diff != "") != tt.wantErr {
-				t.Errorf("%s: (-got, +want)\n%s", tt.name, diff)
+			// if !proto.Equal(File(tt.path), tt.want) {
+			if diff := cmp.Diff(File(tt.path), tt.want, cmp.Comparer(proto.Equal)); (diff != "") != tt.wantErr {
+				t.Fatalf("%s: (-want, +got)", name)
 			}
 		})
 	}
 }
 
 func TestParse(t *testing.T) {
-	tests := []struct {
-		name string
+	tests := map[string]struct {
 		s    string
-		want URI
+		want *URI
 	}{
-		{
-			name: "ValidFileScheme",
-			s:    "file://code.visualstudio.com/docs/extensions/overview.md",
-			want: URI(FileScheme + hierPart + "/docs/extensions/overview.md"),
+		"ValidFileScheme": {
+
+			s: "file://code.visualstudio.com/docs/extensions/overview.md",
+			want: &URI{
+				Uri: FileScheme.Enum().String() + hierPart + "/docs/extensions/overview.md",
+			},
 		},
-		{
-			name: "ValidHTTPScheme",
-			s:    "http://code.visualstudio.com/docs/extensions/overview#frag",
-			want: URI(HTTPScheme + hierPart + "code.visualstudio.com/docs/extensions/overview#frag"),
+		"ValidHTTPScheme": {
+			s: "http://code.visualstudio.com/docs/extensions/overview#frag",
+			want: &URI{
+				Uri: FileScheme.Enum().String() + hierPart + "code.visualstudio.com/docs/extensions/overview#frag",
+			},
 		},
-		{
-			name: "ValidHTTPSScheme",
-			s:    "https://code.visualstudio.com/docs/extensions/overview#frag",
-			want: URI(HTTPSScheme + hierPart + "code.visualstudio.com/docs/extensions/overview#frag"),
+		"ValidHTTPSScheme": {
+			s: "https://code.visualstudio.com/docs/extensions/overview#frag",
+			want: &URI{
+				Uri: HTTPSScheme.Enum().String() + hierPart + "code.visualstudio.com/docs/extensions/overview#frag",
+			},
 		},
 	}
-	for _, tt := range tests {
+	for name, tt := range tests {
 		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
 			got, err := Parse(tt.s)
 			if err != nil {
-				t.Error(err)
+				t.Fatal(err)
 				return
 			}
 
-			if diff := cmp.Diff(got, tt.want); diff != "" {
-				t.Errorf("%s: (-got, +want)\n%s", tt.name, diff)
+			if diff := cmp.Diff(got, tt.want, cmp.Comparer(proto.Equal)); diff != "" {
+				t.Fatalf("%s: (-got, +want)\n%s", name, diff)
 			}
 		})
 	}
@@ -90,13 +94,11 @@ func TestFrom(t *testing.T) {
 		query     string
 		fragment  string
 	}
-	tests := []struct {
-		name string
+	tests := map[string]struct {
 		args args
-		want URI
+		want *URI
 	}{
-		{
-			name: "ValidFileScheme",
+		"ValidFileScheme": {
 			args: args{
 				scheme:    "file",
 				authority: "example.com",
@@ -104,10 +106,11 @@ func TestFrom(t *testing.T) {
 				query:     "name=ferret",
 				fragment:  "nose",
 			},
-			want: URI(FileScheme + hierPart + "/over/there"),
+			want: &URI{
+				Uri: FileScheme.Enum().String() + hierPart + "/over/there",
+			},
 		},
-		{
-			name: "ValidHTTPScheme",
+		"ValidHTTPScheme": {
 			args: args{
 				scheme:    "http",
 				authority: "example.com:8042",
@@ -115,10 +118,11 @@ func TestFrom(t *testing.T) {
 				query:     "name=ferret",
 				fragment:  "nose",
 			},
-			want: URI(HTTPScheme + hierPart + "example.com:8042/over/there?name%3Dferret#nose"),
+			want: &URI{
+				Uri: HTTPScheme.Enum().String() + hierPart + "example.com:8042/over/there?name%3Dferret#nose",
+			},
 		},
-		{
-			name: "ValidHTTPSScheme",
+		"ValidHTTPSScheme": {
 			args: args{
 				scheme:    "https",
 				authority: "example.com:8042",
@@ -126,16 +130,18 @@ func TestFrom(t *testing.T) {
 				query:     "name=ferret",
 				fragment:  "nose",
 			},
-			want: URI(HTTPSScheme + hierPart + "example.com:8042/over/there?name%3Dferret#nose"),
+			want: &URI{
+				Uri: HTTPSScheme.Enum().String() + hierPart + "example.com:8042/over/there?name%3Dferret#nose",
+			},
 		},
 	}
-	for _, tt := range tests {
+	for name, tt := range tests {
 		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			if diff := cmp.Diff(From(tt.args.scheme, tt.args.authority, tt.args.path, tt.args.query, tt.args.fragment), tt.want); diff != "" {
-				t.Errorf("%s: (-got, +want)\n%s", tt.name, diff)
+			if diff := cmp.Diff(From(tt.args.scheme, tt.args.authority, tt.args.path, tt.args.query, tt.args.fragment), tt.want, cmp.Comparer(proto.Equal)); diff != "" {
+				t.Fatalf("%s: (-got, +want)\n%s", name, diff)
 			}
 		})
 	}
