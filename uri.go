@@ -12,42 +12,19 @@ const (
 	schemeHTTPS = "https"
 )
 
-const fileURIPathStart = len(schemeFile + "://")
-
 const (
-	kindOther uint8 = iota
-	kindFile
-	kindHTTP
-	kindHTTPS
-	kindUntitled
+	fileURIAbsolutePrefix = schemeFile + ":///"
+	fileURIPathStart      = len(schemeFile + "://")
 )
 
-const (
-	flagHasQuery    uint8 = 1 << 4
-	flagHasFragment uint8 = 1 << 5
-	kindMask        uint8 = 0x0f
-)
-
-// URI is an immutable, comparable, canonical vscode-uri-compatible URI.
+// URI is an immutable, comparable, canonical vscode-uri-compatible URI string.
 //
-// The stored string is the canonical encoded representation, equivalent to
+// Constructor functions store the canonical encoded representation, equivalent to
 // vscode-uri's URI.parse(input).toString() result for representable Go input.
 // Decoded component accessors are derived from that canonical representation,
 // so parse-history-only casing such as uppercase drive letters or authority
 // hosts is intentionally not retained.
-type URI struct {
-	s string
-
-	schemeEnd uint32
-	authStart uint32
-	authEnd   uint32
-	pathStart uint32
-	pathEnd   uint32
-	queryEnd  uint32
-	fragStart uint32
-
-	kind uint8
-}
+type URI string
 
 // Components contains decoded URI components.
 type Components struct {
@@ -83,18 +60,18 @@ func MustParse(s string) URI {
 func From(c Components) (URI, error) {
 	u, err := newURI(&c, false, "from", "")
 	if err != nil {
-		return URI{}, err
+		return "", err
 	}
 	components := u.Components()
 	if err := validateComponents(&components, true, "from", ""); err != nil {
-		return URI{}, err
+		return "", err
 	}
 	return u, nil
 }
 
 // String returns the canonical encoded URI string.
 func (u URI) String() string {
-	return u.s
+	return string(u)
 }
 
 // StringNoEncoding returns a URI string with vscode-uri toString(true) semantics.
@@ -105,10 +82,8 @@ func (u URI) StringNoEncoding() string {
 
 // Scheme returns the URI scheme.
 func (u URI) Scheme() string {
-	if u.schemeEnd == 0 {
-		return ""
-	}
-	return u.s[:u.schemeEnd]
+	raw := splitRaw(string(u))
+	return raw.scheme
 }
 
 // Authority returns the decoded canonical URI authority.
@@ -117,10 +92,8 @@ func (u URI) Scheme() string {
 // lowercased, matching URI.parse(input).toString() reparsed by vscode-uri rather
 // than vscode-uri's original parse object.
 func (u URI) Authority() string {
-	if u.authStart == u.authEnd {
-		return ""
-	}
-	return percentDecode(u.s[u.authStart:u.authEnd])
+	raw := splitRaw(string(u))
+	return percentDecode(raw.authority)
 }
 
 // Path returns the decoded canonical URI path.
@@ -128,45 +101,57 @@ func (u URI) Authority() string {
 // Windows drive-letter casing follows the canonical URI string. For example,
 // parsing file:///C:/x and reparsing the canonical string both expose /c:/x.
 func (u URI) Path() string {
-	return percentDecode(u.s[u.pathStart:u.pathEnd])
+	raw := splitRaw(string(u))
+	return percentDecode(raw.path)
 }
 
 // Query returns the decoded URI query.
 func (u URI) Query() string {
-	if u.kind&flagHasQuery == 0 {
+	raw := splitRaw(string(u))
+	if !raw.hasQuery {
 		return ""
 	}
-	start := u.pathEnd + 1
-	return percentDecode(u.s[start:u.queryEnd])
+	return percentDecode(raw.query)
 }
 
 // Fragment returns the decoded URI fragment.
 func (u URI) Fragment() string {
-	if u.kind&flagHasFragment == 0 {
+	raw := splitRaw(string(u))
+	if !raw.hasFragment {
 		return ""
 	}
-	return percentDecode(u.s[u.fragStart:])
+	return percentDecode(raw.fragment)
 }
 
 // Components returns all decoded URI components.
 func (u URI) Components() Components {
+	raw := splitRaw(string(u))
+	query := ""
+	if raw.hasQuery {
+		query = percentDecode(raw.query)
+	}
+	fragment := ""
+	if raw.hasFragment {
+		fragment = percentDecode(raw.fragment)
+	}
 	return Components{
-		Scheme:    u.Scheme(),
-		Authority: u.Authority(),
-		Path:      u.Path(),
-		Query:     u.Query(),
-		Fragment:  u.Fragment(),
+		Scheme:    raw.scheme,
+		Authority: percentDecode(raw.authority),
+		Path:      percentDecode(raw.path),
+		Query:     query,
+		Fragment:  fragment,
 	}
 }
 
 // IsFile reports whether u has the exact file scheme.
 func (u URI) IsFile() bool {
-	return u.kind&kindMask == kindFile
+	raw := splitRaw(string(u))
+	return raw.scheme == schemeFile
 }
 
 // IsZero reports whether u is the zero URI value.
 func (u URI) IsZero() bool {
-	return u == URI{}
+	return u == ""
 }
 
 func parse(s string, strict bool) (URI, error) {
@@ -193,46 +178,20 @@ func newURI(c *Components, strict bool, op, input string) (URI, error) {
 	components.Scheme = schemeFix(components.Scheme, strict)
 	components.Path = referenceResolution(components.Scheme, components.Path)
 	if err := validateComponents(&components, strict, op, input); err != nil {
-		return URI{}, err
+		return "", err
 	}
-	return newEncodedURI(formatComponents(&components, false)), nil
-}
-
-func newEncodedURI(s string) URI {
-	raw := splitRaw(s)
-	return newEncodedURIWithRaw(s, &raw)
-}
-
-func newEncodedURIWithRaw(s string, raw *rawParts) URI {
-	u := URI{
-		s:         s,
-		schemeEnd: uint32(len(raw.scheme)),
-		authStart: uint32(raw.authorityStart),
-		authEnd:   uint32(raw.authorityEnd),
-		pathStart: uint32(raw.pathStart),
-		pathEnd:   uint32(raw.pathEnd),
-		queryEnd:  uint32(raw.queryEnd),
-		fragStart: uint32(raw.fragmentStart),
-		kind:      schemeKind(raw.scheme),
-	}
-	if raw.hasQuery {
-		u.kind |= flagHasQuery
-	}
-	if raw.hasFragment {
-		u.kind |= flagHasFragment
-	}
-	return u
+	return URI(formatComponents(&components, false)), nil
 }
 
 func parseCanonicalFast(s string, raw *rawParts, strict bool) (URI, bool, error) {
 	if err := validateRawScheme(s, raw, strict); err != nil {
-		return URI{}, false, err
+		return "", false, err
 	}
 	if raw.scheme == "" {
-		return URI{}, false, nil
+		return "", false, nil
 	}
 	if !rawPartsAreCanonical(s, raw) {
-		return URI{}, false, nil
+		return "", false, nil
 	}
 	c := Components{
 		Scheme:    raw.scheme,
@@ -242,9 +201,9 @@ func parseCanonicalFast(s string, raw *rawParts, strict bool) (URI, bool, error)
 		Fragment:  raw.fragment,
 	}
 	if err := validateComponents(&c, strict, "parse", s); err != nil {
-		return URI{}, false, err
+		return "", false, err
 	}
-	return newEncodedURIWithRaw(s, raw), true, nil
+	return URI(s), true, nil
 }
 
 func validateRawScheme(s string, raw *rawParts, strict bool) error {
@@ -285,42 +244,18 @@ func authorityDelimiterIsCanonical(s string, raw *rawParts) bool {
 }
 
 func parseCanonicalFileFast(s string) (URI, bool) {
-	if len(s) <= fileURIPathStart || !strings.HasPrefix(s, schemeFile+"://") || s[fileURIPathStart] != '/' {
-		return URI{}, false
+	if len(s) < len(fileURIAbsolutePrefix) || s[:len(fileURIAbsolutePrefix)] != fileURIAbsolutePrefix {
+		return "", false
 	}
 	if len(s) > fileURIPathStart+1 && s[fileURIPathStart+1] == '/' {
-		return URI{}, false
+		return "", false
 	}
-	for i := fileURIPathStart; i < len(s); i++ {
+	for i := fileURIPathStart + 1; i < len(s); i++ {
 		if !canPassFast(s[i], true, false) {
-			return URI{}, false
+			return "", false
 		}
 	}
-	return newCanonicalFileURI(s), true
-}
-
-func newCanonicalFileURI(s string) URI {
-	n := uint32(len(s))
-	return URI{
-		s:         s,
-		schemeEnd: uint32(len(schemeFile)),
-		authStart: uint32(fileURIPathStart),
-		authEnd:   uint32(fileURIPathStart),
-		pathStart: uint32(fileURIPathStart),
-		pathEnd:   n,
-		queryEnd:  n,
-		fragStart: n,
-		kind:      kindFile,
-	}
-}
-
-func hasPercent(s string) bool {
-	for i := 0; i < len(s); i++ {
-		if s[i] == '%' {
-			return true
-		}
-	}
-	return false
+	return URI(s), true
 }
 
 func isCanonicalAuthority(authority string) bool {
@@ -447,19 +382,4 @@ func validScheme(s string) bool {
 		return false
 	}
 	return true
-}
-
-func schemeKind(s string) uint8 {
-	switch s {
-	case schemeFile:
-		return kindFile
-	case schemeHTTP:
-		return kindHTTP
-	case schemeHTTPS:
-		return kindHTTPS
-	case "untitled":
-		return kindUntitled
-	default:
-		return kindOther
-	}
 }

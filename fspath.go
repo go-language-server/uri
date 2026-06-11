@@ -62,17 +62,17 @@ func FileFor(platform Platform, path string) URI {
 
 func fileForCleanPOSIX(path string) (URI, bool) {
 	if path == "" || path[0] != '/' {
-		return URI{}, false
+		return "", false
 	}
 	if len(path) > 1 && path[1] == '/' {
-		return URI{}, false
+		return "", false
 	}
 	for i := 0; i < len(path); i++ {
 		if !canPassFast(path[i], true, false) {
-			return URI{}, false
+			return "", false
 		}
 	}
-	return newCanonicalFileURI(schemeFile + "://" + path), true
+	return URI(schemeFile + "://" + path), true
 }
 
 // FsPath returns the filesystem path for u on the host platform.
@@ -115,11 +115,18 @@ func FsPathFor(u URI, platform Platform, keepDriveLetterCasing bool) string {
 }
 
 func fsPathFast(u URI, platform Platform, keepDriveLetterCasing bool) (string, bool) {
-	if platform != PlatformPOSIX || keepDriveLetterCasing || u.kind&kindMask != kindFile || u.authStart != u.authEnd {
+	if platform != PlatformPOSIX || keepDriveLetterCasing {
 		return "", false
 	}
-	path := u.s[u.pathStart:u.pathEnd]
-	if hasPercent(path) {
+	s := string(u)
+	if len(s) < len(fileURIAbsolutePrefix) || s[:len(fileURIAbsolutePrefix)] != fileURIAbsolutePrefix {
+		return "", false
+	}
+	path := s[fileURIPathStart:]
+	if strings.ContainsAny(path, "%?#") {
+		return "", false
+	}
+	if len(path) > 1 && path[1] == '/' {
 		return "", false
 	}
 	if len(path) >= 3 && path[0] == '/' && isASCIIAlpha(path[1]) && path[2] == ':' {

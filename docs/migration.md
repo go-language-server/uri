@@ -1,8 +1,9 @@
 # Migration notes for the canonical vscode-uri rewrite
 
-This branch is an intentional breaking rewrite of `go.lsp.dev/uri`. It replaces
-the previous `type URI string` + `net/url` wrapper with an immutable comparable
-struct whose stored string is the canonical `vscode-uri` representation.
+This branch is an intentional behavior rewrite of `go.lsp.dev/uri`. It replaces
+the previous `net/url`-backed behavior with canonical `vscode-uri` semantics
+while keeping the public representation as immutable comparable `type URI
+string`.
 
 ## Removed or replaced APIs
 
@@ -12,7 +13,6 @@ struct whose stored string is the canonical `vscode-uri` representation.
 | `Filename()` | `FsPath()` or `FsPathFor(URI, Platform, bool)` | `FsPathFor` exposes deterministic POSIX/Windows behavior for tests and cross-platform LSP code. |
 | `From(scheme, authority, path, query, fragment)` | `From(Components)` | Components are decoded fields. Query and fragment are opaque components, matching `vscode-uri`. |
 | `FileScheme`, `HTTPScheme`, `HTTPSScheme` | `Scheme()`, `IsFile()`, local constants if needed | The rewrite keeps scheme strings internal to avoid preserving the old narrow scheme list as API surface. |
-| `type URI string` conversions | `String()`, `MarshalText`, `UnmarshalText` | `URI` remains comparable and map-key friendly, but callers must use explicit string conversion methods. |
 
 ## Behavioral differences to expect
 
@@ -24,11 +24,15 @@ struct whose stored string is the canonical `vscode-uri` representation.
   `vscode-uri` file semantics.
 - Empty query and fragment delimiters are canonicalized away, matching
   `URI.parse(input).toString()` from `vscode-uri`.
-- `URI` equality is canonical-string equality. To keep native Go `==` and map
-  keys safe, component accessors are derived from the canonical string rather
-  than from original parse-history casing. For example, `file://SERVER/x` and
-  `file://server/x` compare equal and expose authority `server`; `file:///C:/x`
-  and `file:///c%3A/x` compare equal and expose path `/c:/x`.
+- `URI` remains `type URI string`, so existing direct string conversions keep
+  compiling. Prefer constructors for new values: direct `URI("...")`
+  conversions preserve the supplied bytes and do not validate or canonicalize.
+- Constructor-produced `URI` equality is canonical-string equality. To keep
+  native Go `==` and map keys safe, component accessors are derived from the
+  canonical string rather than from original parse-history casing. For example,
+  `file://SERVER/x` and `file://server/x` compare equal and expose authority
+  `server`; `file:///C:/x` and `file:///c%3A/x` compare equal and expose path
+  `/c:/x`.
 - `Change` mirrors `vscode-uri` `with` behavior: a nil field keeps the existing
   component; an empty string clears replaceable components; an empty `Scheme`
   follows the non-strict scheme fix and becomes `file`.

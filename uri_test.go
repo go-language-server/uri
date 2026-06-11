@@ -260,10 +260,32 @@ func TestMustParseAndComparability(t *testing.T) {
 			if u.IsZero() {
 				t.Fatal("parsed URI reports IsZero")
 			}
-			if !(URI{}).IsZero() {
+			if !URI("").IsZero() {
 				t.Fatal("zero URI does not report IsZero")
 			}
 		})
+	}
+}
+
+func TestURIStringConversionCompatibility(t *testing.T) {
+	t.Parallel()
+
+	const text = "file:///x.go"
+	u := URI(text)
+	if string(u) != text {
+		t.Fatalf("string(URI(%q)) = %q, want %q", text, string(u), text)
+	}
+	if u.String() != text {
+		t.Fatalf("URI.String() = %q, want %q", u.String(), text)
+	}
+	if !u.IsFile() {
+		t.Fatal("URI converted from file string does not report IsFile")
+	}
+	if u.Scheme() != "file" {
+		t.Fatalf("URI.Scheme() = %q, want file", u.Scheme())
+	}
+	if u.Path() != "/x.go" {
+		t.Fatalf("URI.Path() = %q, want /x.go", u.Path())
 	}
 }
 
