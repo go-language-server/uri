@@ -4,13 +4,28 @@
 
 Package uri is a canonical `vscode-uri` parser and formatter for Go.
 
-This branch is an intentional behavior rewrite while keeping `URI` as an
-immutable, comparable `type URI string`. Constructor functions store the
-canonical encoded string produced by `vscode-uri` semantics. Use `Parse` for URI
-text, `File`/`FileFor` for filesystem paths, `FsPath`/`FsPathFor` for filesystem
-conversion, and `String` or text marshaling for LSP wire output. See
-[docs/migration.md](docs/migration.md) for source migration notes from the
-previous `net/url`-backed API.
+## Canonical escaping
+
+Constructors such as `Parse`, `File`, `FileFor`, and `From` store the canonical
+encoded form returned by `String`, text marshaling, and JSON marshaling. The
+unreserved ASCII set `A-Z a-z 0-9 - . _ ~` stays raw everywhere. Other bytes are
+escaped with uppercase percent triplets unless they are syntax characters that
+are valid for the component being formatted.
+
+| Component | Additional raw syntax | Examples |
+| --- | --- | --- |
+| Path | `/` | `@` -> `%40`, `:` -> `%3A`, `\` -> `%5C`, Unicode bytes -> UTF-8 percent triplets |
+| Query and fragment | none | `=` -> `%3D`, `&` -> `%26`, `/` -> `%2F`, `@` -> `%40` |
+| Authority host/port | `:`, `[`, `]` | `[::1]:8080` stays raw; `/` in an authority part becomes `%2F` |
+| Authority userinfo delimiter | `@` | `http://user:pass@host:8080/p` keeps the delimiter raw |
+
+For example,
+`FileFor(PlatformPOSIX, "/Users/me/go/pkg/mod/example.com/mod@v1.2.3/file.go")`
+formats as `file:///Users/me/go/pkg/mod/example.com/mod%40v1.2.3/file.go`.
+`StringNoEncoding()` returns the `vscode-uri` `toString(true)` style form and can
+expose decoded characters such as `@`, `=`, `&`, or Unicode text. The direct
+`URI("...")` compatibility path described below is not a constructor path, so it
+is outside this canonicalization step.
 
 Constructor-produced `URI` values compare by canonical string identity. Direct
 `URI("...")` conversions remain available for compatibility, but they do not
