@@ -30,6 +30,7 @@ GO_TEST_PACKAGES = $(shell go list -f='{{if or .TestGoFiles .XTestGoFiles}}{{.Im
 GO_TEST_FLAGS ?= -race -count=1
 GO_TEST_FUNC ?= .
 GO_COVERAGE_JUNITFILE_DIR ?= _test_results
+GO_BENCH_PACKAGES ?= ./...
 GO_BENCH_FLAGS ?= -benchmem
 GO_BENCH_FUNC ?= .
 GO_LINT_FLAGS ?=
@@ -63,13 +64,17 @@ coverage:  ## Takes packages test coverage.
 	@mkdir -p ${GO_COVERAGE_JUNITFILE_DIR}
 	${GO_TEST} ${GO_TEST_FLAGS} -cover -covermode=atomic -coverpkg=./... -coverprofile=coverage.out $(strip ${GO_FLAGS}) ./...
 
+.PHONY: bench
+bench:  ## Runs benchmarks with headline GOEXPERIMENT unset.
+	env GOEXPERIMENT= go test -run='^$$' -bench=${GO_BENCH_FUNC} ${GO_BENCH_FLAGS} ${GO_BENCH_PACKAGES}
+
 
 ##@ fmt, lint
 
 .PHONY: fmt
 fmt: tools/bin/goimports-rereviser tools/bin/gofumpt
 fmt:  ## Run goimports-rereviser and gofumpt.
-	@${TOOLS_BIN}/goimports-rereviser -project-name=go.lsp.dev/jsonrpc2 -use-cache -cache-fast-skip -format -rm-unused -set-alias -recursive .
+	@${TOOLS_BIN}/goimports-rereviser -project-name=go.lsp.dev/uri -use-cache -cache-fast-skip -format -rm-unused -set-alias -recursive .
 	@${TOOLS_BIN}/gofumpt -extra -w .
 
 .PHONY: lint
@@ -84,9 +89,15 @@ lint/golangci-lint: .golangci.yaml  ## Run golangci-lint.
 ##@ generate
 
 .PHONY: generate
-generate:  ## Regenerate the protocol package from metaModel.json and format it.
-	go run go.lsp.dev/protocol/internal/genlsp/cmd/genlsp -input internal/genlsp/testdata/metaModel.json -output . -pkg protocol
-	go tool gofumpt -extra -w .
+generate: tools/bin/gofumpt
+generate:  ## Regenerate URI tables and format them.
+	go run ./internal/gentables > tables.go
+	@${TOOLS_BIN}/gofumpt -extra -w .
+
+.PHONY: vectors
+vectors:  ## Regenerate conformance vectors from pinned vscode-uri.
+	npm ci --prefix tools/genvectors
+	node tools/genvectors/main.mjs
 
 
 ##@ tools

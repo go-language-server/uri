@@ -1,0 +1,14 @@
+{
+  "name": "go-lsp-uri-genvectors",
+  "private": true,
+  "type": "module",
+  "description": "Reference vector generator for go.lsp.dev/uri.",
+  "scripts": {
+    "generate": "node main.mjs",
+    "generate:static": "node main.mjs --use-static-fixture"
+  },
+  "dependencies": {
+    "vscode-uri": "3.1.0"
+  },
+  "devDependencies": {}
+}

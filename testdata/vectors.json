@@ -1,0 +1,330 @@
+{
+  "version": 1,
+  "source": "Curated from microsoft/vscode-uri uri.test.ts and paths.test.ts at commit 4ad59d85fbcfbcff4ffe60f754ee3c51da818e7e plus local plan edge cases.",
+  "parse": [
+    {
+      "name": "http single slash query",
+      "input": "http:/api/files/test.me?t=1234",
+      "components": {
+        "scheme": "http",
+        "authority": "",
+        "path": "/api/files/test.me",
+        "query": "t=1234",
+        "fragment": ""
+      },
+      "string": "http:/api/files/test.me?t%3D1234",
+      "stringNoEncoding": "http:/api/files/test.me?t=1234",
+      "fsPathPOSIX": "/api/files/test.me",
+      "fsPathWindows": "\\api\\files\\test.me"
+    },
+    {
+      "name": "file drive path",
+      "input": "file:///c:/test/me",
+      "components": {
+        "scheme": "file",
+        "authority": "",
+        "path": "/c:/test/me",
+        "query": "",
+        "fragment": ""
+      },
+      "string": "file:///c%3A/test/me",
+      "stringNoEncoding": "file:///c:/test/me",
+      "fsPathPOSIX": "c:/test/me",
+      "fsPathWindows": "c:\\test\\me"
+    },
+    {
+      "name": "file unc authority",
+      "input": "file://shares/files/c%23/p.cs",
+      "components": {
+        "scheme": "file",
+        "authority": "shares",
+        "path": "/files/c#/p.cs",
+        "query": "",
+        "fragment": ""
+      },
+      "string": "file://shares/files/c%23/p.cs",
+      "stringNoEncoding": "file://shares/files/c%23/p.cs",
+      "fsPathPOSIX": "//shares/files/c#/p.cs",
+      "fsPathWindows": "\\\\shares\\files\\c#\\p.cs"
+    },
+    {
+      "name": "inmemory empty",
+      "input": "inmemory:",
+      "components": {
+        "scheme": "inmemory",
+        "authority": "",
+        "path": "",
+        "query": "",
+        "fragment": ""
+      },
+      "string": "inmemory:",
+      "stringNoEncoding": "inmemory:",
+      "fsPathPOSIX": "",
+      "fsPathWindows": ""
+    },
+    {
+      "name": "scheme-less fallback",
+      "input": "foo/bar",
+      "components": {
+        "scheme": "file",
+        "authority": "",
+        "path": "/foo/bar",
+        "query": "",
+        "fragment": ""
+      },
+      "string": "file:///foo/bar",
+      "stringNoEncoding": "file:///foo/bar",
+      "fsPathPOSIX": "/foo/bar",
+      "fsPathWindows": "\\foo\\bar"
+    },
+    {
+      "name": "invalid percent escape",
+      "input": "file://some/%A0.txt",
+      "components": {
+        "scheme": "file",
+        "authority": "some",
+        "path": "/%A0.txt",
+        "query": "",
+        "fragment": ""
+      },
+      "string": "file://some/%25A0.txt",
+      "stringNoEncoding": "file://some/%A0.txt",
+      "fsPathPOSIX": "//some/%A0.txt",
+      "fsPathWindows": "\\\\some\\%A0.txt"
+    },
+    {
+      "name": "encoded authority slash",
+      "input": "file://%2Fhome%2Fticino%2Fdesktop%2Fcpluscplus%2Ftest.cpp",
+      "components": {
+        "scheme": "file",
+        "authority": "/home/ticino/desktop/cpluscplus/test.cpp",
+        "path": "/",
+        "query": "",
+        "fragment": ""
+      },
+      "string": "file://%2Fhome%2Fticino%2Fdesktop%2Fcpluscplus%2Ftest.cpp/",
+      "stringNoEncoding": "file:///home/ticino/desktop/cpluscplus/test.cpp/",
+      "fsPathPOSIX": "/",
+      "fsPathWindows": "\\"
+    },
+    {
+      "name": "query and fragment decoded separators",
+      "input": "scheme:/p?q%3Da%26b#frag%23x%3Fy",
+      "components": {
+        "scheme": "scheme",
+        "authority": "",
+        "path": "/p",
+        "query": "q=a&b",
+        "fragment": "frag#x?y"
+      },
+      "string": "scheme:/p?q%3Da%26b#frag%23x%3Fy",
+      "stringNoEncoding": "scheme:/p?q=a&b#frag#x?y",
+      "fsPathPOSIX": "/p",
+      "fsPathWindows": "\\p"
+    },
+    {
+      "name": "foo:?",
+      "input": "foo:?",
+      "components": {
+        "scheme": "foo",
+        "authority": "",
+        "path": "",
+        "query": "",
+        "fragment": ""
+      },
+      "string": "foo:",
+      "stringNoEncoding": "foo:",
+      "fsPathPOSIX": "",
+      "fsPathWindows": ""
+    },
+    {
+      "name": "foo:#",
+      "input": "foo:#",
+      "components": {
+        "scheme": "foo",
+        "authority": "",
+        "path": "",
+        "query": "",
+        "fragment": ""
+      },
+      "string": "foo:",
+      "stringNoEncoding": "foo:",
+      "fsPathPOSIX": "",
+      "fsPathWindows": ""
+    },
+    {
+      "name": "foo:?x#",
+      "input": "foo:?x#",
+      "components": {
+        "scheme": "foo",
+        "authority": "",
+        "path": "",
+        "query": "x",
+        "fragment": ""
+      },
+      "string": "foo:?x",
+      "stringNoEncoding": "foo:?x",
+      "fsPathPOSIX": "",
+      "fsPathWindows": ""
+    },
+    {
+      "name": "https://host/p?#",
+      "input": "https://host/p?#",
+      "components": {
+        "scheme": "https",
+        "authority": "host",
+        "path": "/p",
+        "query": "",
+        "fragment": ""
+      },
+      "string": "https://host/p",
+      "stringNoEncoding": "https://host/p",
+      "fsPathPOSIX": "/p",
+      "fsPathWindows": "\\p"
+    },
+    {
+      "name": "file:///C:/test",
+      "input": "file:///C:/test",
+      "components": {
+        "scheme": "file",
+        "authority": "",
+        "path": "/c:/test",
+        "query": "",
+        "fragment": ""
+      },
+      "string": "file:///c%3A/test",
+      "stringNoEncoding": "file:///c:/test",
+      "fsPathPOSIX": "c:/test",
+      "fsPathWindows": "c:\\test"
+    },
+    {
+      "name": "file:///c%3A/test",
+      "input": "file:///c%3A/test",
+      "components": {
+        "scheme": "file",
+        "authority": "",
+        "path": "/c:/test",
+        "query": "",
+        "fragment": ""
+      },
+      "string": "file:///c%3A/test",
+      "stringNoEncoding": "file:///c:/test",
+      "fsPathPOSIX": "c:/test",
+      "fsPathWindows": "c:\\test"
+    },
+    {
+      "name": "file://SERVER/Share/X.go",
+      "input": "file://SERVER/Share/X.go",
+      "components": {
+        "scheme": "file",
+        "authority": "server",
+        "path": "/Share/X.go",
+        "query": "",
+        "fragment": ""
+      },
+      "string": "file://server/Share/X.go",
+      "stringNoEncoding": "file://server/Share/X.go",
+      "fsPathPOSIX": "//server/Share/X.go",
+      "fsPathWindows": "\\\\server\\Share\\X.go"
+    }
+  ],
+  "errors": [
+    {
+      "name": "strict missing scheme",
+      "input": "foo/bar",
+      "strict": true,
+      "error": "uri: scheme is missing"
+    },
+    {
+      "name": "unicode scheme",
+      "input": "fäil:path",
+      "strict": false,
+      "error": "uri: scheme contains illegal characters"
+    },
+    {
+      "name": "double slash path without authority",
+      "input": "file:////shares/files/p.cs",
+      "strict": false,
+      "error": "uri: path without authority cannot begin with two slashes"
+    }
+  ],
+  "paths": [
+    {
+      "name": "join append",
+      "op": "join",
+      "uri": "foo://a/foo/bar",
+      "segments": [
+        "x"
+      ],
+      "want": "foo://a/foo/bar/x"
+    },
+    {
+      "name": "join untitled relative",
+      "op": "join",
+      "uri": "untitled:untitled-1",
+      "segments": [
+        "..",
+        "untitled-2"
+      ],
+      "want": "untitled:untitled-2"
+    },
+    {
+      "name": "resolve absolute override",
+      "op": "resolve",
+      "uri": "foo://a/foo/bar/",
+      "segments": [
+        "/x"
+      ],
+      "want": "foo://a/x"
+    },
+    {
+      "name": "resolve untitled absolute strips",
+      "op": "resolve",
+      "uri": "untitled:",
+      "segments": [
+        "/foo"
+      ],
+      "want": "untitled:foo"
+    },
+    {
+      "name": "dirname file leaf",
+      "op": "dirname",
+      "uri": "foo://a/some/file/test.txt",
+      "want": "foo://a/some/file"
+    },
+    {
+      "name": "basename trailing",
+      "op": "basename",
+      "uri": "foo://a/some/file///",
+      "want": "file"
+    },
+    {
+      "name": "extname dotfile",
+      "op": "extname",
+      "uri": "foo://a/foo/.foo",
+      "want": ""
+    },
+    {
+      "name": "extname file",
+      "op": "extname",
+      "uri": "foo://a/foo/bar.foo",
+      "want": ".foo"
+    }
+  ],
+  "generatedAt": "1970-01-01T00:00:00.000Z",
+  "generator": "vscode-uri-canonical-reparse",
+  "vscodeURIVersion": "3.1.0",
+  "contract": "go-comparable-canonical-uri",
+  "referenceGenerated": [
+    "parse.string",
+    "parse.stringNoEncoding",
+    "parse.components.fromCanonicalReparse",
+    "parse.fsPathPOSIX.fromCanonicalReparse",
+    "parse.fsPathWindows.fromCanonicalReparse",
+    "paths"
+  ],
+  "curated": [
+    "errors"
+  ],
+  "note": "Go URI values compare by canonical string identity. Parse vectors derive component and fsPath fields by reparsing vscode-uri toString() output, not by preserving original parse-history casing."
+}

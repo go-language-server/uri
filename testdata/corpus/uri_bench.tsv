@@ -1,0 +1,9 @@
+# name	uri
+file-posix-clean	file:///home/user/project/main.go
+file-gomodcache-at	file:///Users/me/go/pkg/mod/example.com/mod@v1.2.3/file.go
+file-windows-drive	file:///C:/Users/me/project/main.go
+file-unc	file://server/share/project/main.go
+file-unicode-escaped	file:///home/user/Z%C3%BCrich/c%23/plugin.json
+https-query-fragment	https://host/p?name=ferret#f
+generic-untitled	untitled:untitled-1
+escape-heavy	file:///space path/needs#fragment?not-query
