@@ -2,7 +2,24 @@
 
 [![CircleCI][circleci-badge]][circleci] [![pkg.go.dev][pkg.go.dev-badge]][pkg.go.dev] [![Go module][module-badge]][module] [![codecov.io][codecov-badge]][codecov] [![GA][ga-badge]][ga]
 
-Package uri is an implementation of the URI Uniform Resource Identifier(RFC3986) specification for Go.
+Package uri is a canonical `vscode-uri` parser and formatter for Go.
+
+This branch is an intentional breaking rewrite: `URI` is now an immutable,
+comparable struct that stores the canonical encoded string produced by
+`vscode-uri` semantics. Use `Parse` for URI text, `File`/`FileFor` for filesystem
+paths, `FsPath`/`FsPathFor` for filesystem conversion, and `String` or text
+marshaling for LSP wire output. See [docs/migration.md](docs/migration.md) for
+source migration notes from the previous `type URI string` API.
+
+`URI` values compare by canonical string identity. To keep native Go equality and
+map keys safe, decoded component accessors expose the same view as reparsing
+`vscode-uri`'s `URI.parse(input).toString()` output: original parse-history-only
+casing such as `file://SERVER/...` authorities or `file:///C:/...` drive letters
+is normalized in `Authority`, `Path`, and `FsPath`.
+
+Performance notes and reproducible benchmark commands are in
+[docs/perf.md](docs/perf.md). Conformance vectors are regenerated from the
+pinned Node dependency in [tools/genvectors](tools/genvectors/README.md).
 
 
 <!-- badge links -->
