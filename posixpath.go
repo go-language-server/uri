@@ -45,7 +45,26 @@ func posixNormalize(p string) string {
 }
 
 func posixJoin(paths ...string) string {
+	totalLen := 0
+	nonEmptyCount := 0
+	onlyNonEmpty := ""
+	for _, p := range paths {
+		if p == "" {
+			continue
+		}
+		totalLen += len(p)
+		nonEmptyCount++
+		onlyNonEmpty = p
+	}
+	if nonEmptyCount == 0 {
+		return "."
+	}
+	if nonEmptyCount == 1 {
+		return posixNormalize(onlyNonEmpty)
+	}
+
 	var joined strings.Builder
+	joined.Grow(totalLen + nonEmptyCount - 1)
 	for _, p := range paths {
 		if p == "" {
 			continue
@@ -54,9 +73,6 @@ func posixJoin(paths ...string) string {
 			joined.WriteByte('/')
 		}
 		joined.WriteString(p)
-	}
-	if joined.Len() == 0 {
-		return "."
 	}
 	return posixNormalize(joined.String())
 }
