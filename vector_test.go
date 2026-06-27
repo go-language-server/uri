@@ -63,10 +63,10 @@ func TestVectors(t *testing.T) {
 	if vectors.Contract != "go-comparable-canonical-uri" {
 		t.Fatalf("vectors contract = %q, want go-comparable-canonical-uri", vectors.Contract)
 	}
-	if !containsString(vectors.ReferenceGenerated, "parse.components.fromCanonicalReparse") {
+	if !slices.Contains(vectors.ReferenceGenerated, "parse.components.fromCanonicalReparse") {
 		t.Fatalf("referenceGenerated = %v, want parse.components.fromCanonicalReparse", vectors.ReferenceGenerated)
 	}
-	if !containsString(vectors.Curated, "errors") {
+	if !slices.Contains(vectors.Curated, "errors") {
 		t.Fatalf("curated = %v, want errors", vectors.Curated)
 	}
 	for _, v := range vectors.Parse {
@@ -110,7 +110,7 @@ func TestVectors(t *testing.T) {
 			if err == nil {
 				t.Fatal("parse succeeded, want error")
 			}
-			if !errors.Is(err, sentinelForVectorError(v.Error)) {
+			if !errors.Is(err, sentinelForVectorError(t, v.Error)) {
 				t.Fatalf("parse error = %v, want %q", err, v.Error)
 			}
 		})
@@ -156,10 +156,6 @@ func TestVectors(t *testing.T) {
 	}
 }
 
-func containsString(values []string, want string) bool {
-	return slices.Contains(values, want)
-}
-
 func readVectors(t *testing.T) vectorFile {
 	t.Helper()
 	data, err := os.ReadFile("testdata/vectors.json")
@@ -173,7 +169,8 @@ func readVectors(t *testing.T) vectorFile {
 	return vectors
 }
 
-func sentinelForVectorError(s string) error {
+func sentinelForVectorError(t *testing.T, s string) error {
+	t.Helper()
 	switch s {
 	case ErrMissingScheme.Error():
 		return ErrMissingScheme
@@ -184,6 +181,7 @@ func sentinelForVectorError(s string) error {
 	case ErrPathAuthority.Error():
 		return ErrPathAuthority
 	default:
-		return errors.New(s)
+		t.Fatalf("unknown vector error %q", s)
+		return nil
 	}
 }

@@ -12,11 +12,6 @@ linters:
   # removed-in-v2 linters (deadcode, structcheck, varcheck, golint, scopelint,
   # maligned, exhaustivestruct, ifshort) are dropped; goerr113 -> err113,
   # gomnd -> mnd, exportloopref -> copyloopvar.
-  #
-  # exhaustive is intentionally not enabled: several switches over the wire
-  # enum types (MessageViewKind, fieldKind, idKind) deliberately fold the
-  # unhandled cases into a single default arm, and an explicit case-per-value
-  # would be dead duplication rather than added safety.
   enable:
     - asciicheck
     - bodyclose
@@ -89,10 +84,6 @@ linters:
       enable-all: true
       disable:
         - fieldalignment
-        # The frame writers shadow the response error param with a scoped
-        # ctx.Err() check that returns before the param is reused, so the
-        # shadow is intentional and harmless.
-        - shadow
     lll:
       line-length: 150
       tab-width: 1
@@ -135,45 +126,6 @@ linters:
           - testpackage
           - thelper
           - tparallel
-      # The server-serving surface deliberately ignores Close/Remove errors on
-      # teardown paths where there is nothing actionable to do with the error,
-      # and ListenAndServe's documented contract is to call net.Listen directly.
-      - path: serve\.go
-        linters:
-          - errcheck
-          - noctx
-          - gocognit
-          - gocyclo
-          - funlen
-      # The hand-written scanner and string un-escaper are deliberately dense,
-      # single-pass state machines whose perf depends on keeping the branch logic
-      # inline; their complexity is reviewed in the scanner gap-review comment in
-      # scan_test.go rather than spread across helper functions.
-      - path: scan\.go
-        linters:
-          - gocognit
-          - gocyclo
-          - gocritic
-      - path: jsonstr\.go
-        linters:
-          - gocyclo
-      # The framer compares against the io.EOF and bufio.ErrBufferFull sentinels,
-      # which the bufio reader returns unwrapped, so a direct comparison is
-      # correct here; and its ReadFrame results are documented by the interface
-      # contract rather than by named returns.
-      - path: framer\.go
-        linters:
-          - errorlint
-          - gocritic
-      # The ID writer repeats the JSON null literal across the kind switches, so
-      # goconst's duplicate-string heuristic fires on intentional wire constants.
-      - path: id\.go
-        linters:
-          - goconst
-      # The dispatch goroutine intentionally fires the handler without checking
-      # its returned (connection-level) error inline.
-      - path: handler\.go
-        text: "Error return value of `handler` is not checked"
 
 formatters:
   enable:

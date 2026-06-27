@@ -169,10 +169,11 @@ func TestFsPathFor(t *testing.T) {
 
 func TestFileAndFsPathAllocationGates(t *testing.T) {
 	tests := map[string]struct {
-		name  string
-		alloc func() float64
+		alloc     func() float64
+		maxAllocs float64
 	}{
 		"FileFor clean absolute uses at most one allocation": {
+			maxAllocs: 1,
 			alloc: func() float64 {
 				return testing.AllocsPerRun(1000, func() {
 					u := FileFor(PlatformPOSIX, "/abs/clean/path.go")
@@ -183,6 +184,7 @@ func TestFileAndFsPathAllocationGates(t *testing.T) {
 			},
 		},
 		"FsPathFor clean posix file is zero allocation": {
+			maxAllocs: 0,
 			alloc: func() float64 {
 				u := MustParse("file:///home/user/x.go")
 				return testing.AllocsPerRun(1000, func() {
@@ -197,15 +199,8 @@ func TestFileAndFsPathAllocationGates(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			allocs := tt.alloc()
-			switch name {
-			case "FileFor clean absolute uses at most one allocation":
-				if allocs > 1 {
-					t.Fatalf("allocs = %v, want <= 1", allocs)
-				}
-			case "FsPathFor clean posix file is zero allocation":
-				if allocs != 0 {
-					t.Fatalf("allocs = %v, want 0", allocs)
-				}
+			if allocs > tt.maxAllocs {
+				t.Fatalf("allocs = %v, want <= %v", allocs, tt.maxAllocs)
 			}
 		})
 	}

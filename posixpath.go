@@ -12,9 +12,8 @@ func posixNormalize(p string) string {
 	}
 	absolute := p[0] == '/'
 	trailing := p[len(p)-1] == '/'
-	parts := strings.Split(p, "/")
-	stack := make([]string, 0, len(parts))
-	for _, part := range parts {
+	stack := make([]string, 0, strings.Count(p, "/")+1)
+	for part := range strings.SplitSeq(p, "/") {
 		switch part {
 		case "", ".":
 			continue
@@ -46,21 +45,20 @@ func posixNormalize(p string) string {
 }
 
 func posixJoin(paths ...string) string {
-	var joined string
+	var joined strings.Builder
 	for _, p := range paths {
 		if p == "" {
 			continue
 		}
-		if joined == "" {
-			joined = p
-		} else {
-			joined += "/" + p
+		if joined.Len() > 0 {
+			joined.WriteByte('/')
 		}
+		joined.WriteString(p)
 	}
-	if joined == "" {
+	if joined.Len() == 0 {
 		return "."
 	}
-	return posixNormalize(joined)
+	return posixNormalize(joined.String())
 }
 
 func posixResolve(paths ...string) string {

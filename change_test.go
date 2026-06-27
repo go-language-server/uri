@@ -47,11 +47,6 @@ func TestWith(t *testing.T) {
 			change: Change{Authority: str("")},
 			want:   "scheme:/path",
 		},
-		"success: remove authority with clear pointer": {
-			base:   "scheme://authority/path",
-			change: Change{Authority: str("")},
-			want:   "scheme:/path",
-		},
 		"success: clear path leaves authority": {
 			base:   "scheme:/path",
 			change: Change{Authority: str("authority"), Path: str("")},
